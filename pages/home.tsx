@@ -105,8 +105,8 @@ export default function Home() {
         const registrosResponse = await fetch('/api/records');
         const registros = await registrosResponse.json();
         
-        const vansDisponiveis = vansData.filter(van => {
-          const temMotoristaAtivo = registros.some(registro => {
+        const vansDisponiveis = vansData.filter((van: any) => {
+          const temMotoristaAtivo = registros.some((registro: any) => {
             const isMotorista = !registro.userTipo || registro.userTipo === 'motorista';
             return registro.vanId === van.id && !registro.fechamento && isMotorista;
           });
@@ -122,8 +122,8 @@ export default function Home() {
           // Para iniciar: apenas vans com motorista ativo
           const vansComMotorista = [];
           
-          for (const van of vansData) {
-            const registroMotorista = registros.find(registro => {
+          for (const van of (vansData as any[])) {
+            const registroMotorista = registros.find((registro: any) => {
               const isMotorista = !registro.userTipo || registro.userTipo === 'motorista';
               return registro.vanId === van.id && !registro.fechamento && isMotorista;
             });
@@ -146,7 +146,7 @@ export default function Home() {
           vansData = vansComMotorista;
         } else {
           // Para fechar: verificar se van do registro aberto ainda tem motorista ativo
-          const vanAindaAtiva = registros.some(registro => {
+          const vanAindaAtiva = registros.some((registro: any) => {
             const isMotorista = !registro.userTipo || registro.userTipo === 'motorista';
             return registro.vanId === (openRecord as any).vanId && !registro.fechamento && isMotorista;
           });
@@ -234,7 +234,7 @@ export default function Home() {
     
     setLoading(true);
     try {
-      const response = await fetch(`/api/records/${openRecord.id}`, {
+      const response = await fetch(`/api/records/${(openRecord as any).id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -329,7 +329,7 @@ export default function Home() {
                userTipo === 'motorista' && vans.length === 0 ? '⚠️ Todas as vans ocupadas' : 
                '🚐 Selecione uma van'}
             </option>
-            {vans.map(van => (
+            {vans.map((van: any) => (
               <option key={van.id} value={van.id}>
                 {van.placa} - KM: {van.kmAtual}{van.nomeMotorista ? ` - ${van.nomeMotorista}` : ''}
               </option>
@@ -340,7 +340,7 @@ export default function Home() {
             <label>KM Inicial:</label>
             <input
               type="number"
-              value={openRecord ? openRecord.abertura.kmInicial : kmValue}
+              value={openRecord ? (openRecord as any).abertura.kmInicial : kmValue}
               onChange={(e) => {
                 const value = e.target.value;
                 setKmValue(value);
@@ -389,11 +389,11 @@ export default function Home() {
             <div className="trip-info">
               <div className="info-item">
                 <span className="label">Van:</span>
-                <span className="value">{openRecord.placa}</span>
+                <span className="value">{(openRecord as any).placa}</span>
               </div>
               <div className="info-item">
                 <span className="label">KM Inicial:</span>
-                <span className="value">{openRecord.abertura.kmInicial}</span>
+                <span className="value">{(openRecord as any).abertura.kmInicial}</span>
               </div>
             </div>
           )}
@@ -410,8 +410,8 @@ export default function Home() {
                 setKmFinalValue(value);
                 
                 if (openRecord && value) {
-                  if (parseInt(value) < openRecord.abertura.kmInicial) {
-                    setKmFinalError(`❌ KM final deve ser maior ou igual a ${openRecord.abertura.kmInicial}`);
+                  if (parseInt(value) < (openRecord as any).abertura.kmInicial) {
+                    setKmFinalError(`❌ KM final deve ser maior ou igual a ${(openRecord as any).abertura.kmInicial}`);
                   } else {
                     setKmFinalError('');
                   }
@@ -419,7 +419,7 @@ export default function Home() {
               }}
               className={`input large km-input ${kmFinalError ? 'error-input' : ''}`}
               placeholder={openRecord ? (userTipo === 'copiloto' ? 'KM automático da van' : 'Digite o KM final') : 'Inicie uma viagem primeiro'}
-              min={openRecord ? openRecord.abertura.kmInicial : undefined}
+              min={openRecord ? (openRecord as any).abertura.kmInicial : undefined}
               readOnly={userTipo === 'copiloto'}
               disabled={!openRecord}
             />
@@ -480,7 +480,7 @@ export default function Home() {
                   </tr>
                 </thead>
                 <tbody>
-                  {userRecords && userRecords.length > 0 ? userRecords.map(record => {
+                  {userRecords && userRecords.length > 0 ? userRecords.map((record: any) => {
                     const totalKm = record.fechamento?.kmFinal && record.abertura?.kmInicial 
                       ? record.fechamento.kmFinal - record.abertura.kmInicial 
                       : null;

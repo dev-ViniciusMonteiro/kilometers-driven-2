@@ -57,7 +57,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       
       const snapshot = await getDocs(q);
-      const records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const records = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
       
       res.status(200).json(records);
     } catch (error: any) {

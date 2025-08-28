@@ -15,7 +15,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     const querySnapshot = await getDocs(q);
     const vans = querySnapshot.docs
-      .map(doc => ({
+      .map((doc: any) => ({
         id: doc.id,
         ...doc.data()
       }))

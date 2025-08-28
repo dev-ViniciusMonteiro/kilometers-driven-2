@@ -128,7 +128,7 @@ function VanManagement() {
 
       <div className="vans-list" style={{padding: '20px', paddingTop: '0'}}>
         <h3>Vans Cadastradas ({Array.isArray(vans) ? vans.length : 0})</h3>
-        {Array.isArray(vans) && vans.length > 0 ? vans.map(van => (
+        {Array.isArray(vans) && vans.length > 0 ? vans.map((van: any) => (
           <div key={van.id} className="van-item">
             <div className="van-info">
               <span className="van-placa">{van.placa}</span>
@@ -252,7 +252,7 @@ export default function Admin() {
   const loadUsers = async () => {
     try {
       const snapshot = await getDocs(collection(db, 'usuarios'));
-      const userIds = snapshot.docs.map(doc => doc.data().uid);
+      const userIds = snapshot.docs.map((doc: any) => doc.data().uid);
       
       const response = await fetch('/api/users/get-emails', {
         method: 'POST',
@@ -262,7 +262,7 @@ export default function Admin() {
       
       const emailData = await response.json();
       
-      const usersData = snapshot.docs.map(doc => {
+      const usersData = snapshot.docs.map((doc: any) => {
         const userData = doc.data();
         const userEmail = emailData[userData.uid] || userData.email || 'Email não encontrado';
         return {
@@ -444,7 +444,7 @@ export default function Admin() {
   };
 
   const exportCSV = (): void => {
-    const filteredRecords = records.filter(record => {
+    const filteredRecords = records.filter((record: any) => {
       if (recordFilters.selectedUser && record.userId !== recordFilters.selectedUser) {
         return false;
       }
@@ -495,7 +495,7 @@ export default function Admin() {
       csvContent.push(['Assinatura: _________________________________']);
     }
     
-    const csvString = csvContent.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
+    const csvString = csvContent.map((row: any) => row.map((cell: any) => `"${cell}"`).join(',')).join('\n');
 
     const blob = new Blob([csvString], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -530,7 +530,7 @@ export default function Admin() {
   };
 
   const getFilteredRecords = (): any[] => {
-    return records.filter(record => {
+    return records.filter((record: any) => {
       if (chartFilters.selectedUser && record.userId !== chartFilters.selectedUser) {
         return false;
       }
@@ -552,12 +552,12 @@ export default function Admin() {
   const getUserStats = (): any[] => {
     const filteredRecords = getFilteredRecords();
     
-    const motoristaRecords = filteredRecords.filter(r => {
+    const motoristaRecords = filteredRecords.filter((r: any) => {
       const user = users.find(u => u.uid === r.userId);
       return user && (user.tipo === 'motorista' || !user.tipo);
     });
     
-    const copilotoRecords = filteredRecords.filter(r => {
+    const copilotoRecords = filteredRecords.filter((r: any) => {
       const user = users.find(u => u.uid === r.userId);
       return user && user.tipo === 'copiloto';
     });
@@ -700,12 +700,12 @@ export default function Admin() {
   const generateBarChart = (): any => {
     const filteredRecords = getFilteredRecords();
     
-    const motoristaRecords = filteredRecords.filter(r => {
+    const motoristaRecords = filteredRecords.filter((r: any) => {
       const user = users.find(u => u.uid === r.userId);
       return user && (user.tipo === 'motorista' || !user.tipo) && r.fechamento?.kmFinal;
     });
     
-    const copilotoRecords = filteredRecords.filter(r => {
+    const copilotoRecords = filteredRecords.filter((r: any) => {
       const user = users.find(u => u.uid === r.userId);
       return user && user.tipo === 'copiloto' && r.fechamento?.kmFinal;
     });
@@ -836,11 +836,11 @@ export default function Admin() {
             />
           </div>
           <div className="users-list">
-          {users.filter(user => 
+          {users.filter((user: any) => 
             !userFilter || 
             user.nome?.toLowerCase().includes(userFilter.toLowerCase()) ||
             user.email?.toLowerCase().includes(userFilter.toLowerCase())
-          ).map(user => (
+          ).map((user: any) => (
             <div key={user.id} className="user-item">
               <div className="user-info">
                 <span className="user-name">{user.nome}</span>
@@ -997,7 +997,7 @@ export default function Admin() {
               className="input"
             >
               <option value="">Todos os usuários</option>
-              {users.map(user => (
+              {users.map((user: any) => (
                 <option key={user.uid} value={user.uid}>{user.nome || user.email}</option>
               ))}
             </select>
@@ -1021,7 +1021,7 @@ export default function Admin() {
                 </tr>
               </thead>
               <tbody>
-                {records.filter(record => {
+                {records.filter((record: any) => {
                   if (recordFilters.selectedUser && record.userId !== recordFilters.selectedUser) {
                     return false;
                   }
@@ -1037,7 +1037,7 @@ export default function Admin() {
                   }
                   
                   return true;
-                }).map(record => {
+                }).map((record: any) => {
                   const user = users.find(u => u.uid === record.userId);
                   const distancia = record.fechamento?.kmFinal && record.abertura?.kmInicial 
                     ? record.fechamento.kmFinal - record.abertura.kmInicial 
@@ -1098,7 +1098,7 @@ export default function Admin() {
               className="input"
             >
               <option value="">Todos os usuários</option>
-              {users.map(user => (
+              {users.map((user: any) => (
                 <option key={user.uid} value={user.uid}>
                   {user.nome || user.email} - {user.tipo || 'motorista'}
                 </option>

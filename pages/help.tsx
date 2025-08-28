@@ -22,7 +22,7 @@ export default function Help() {
 
       <div className="help-content">
         <nav className="help-nav">
-          {Object.entries(sections).map(([key, title]) => (
+          {Object.entries(sections).map(([key, title]: [string, string]) => (
             <button
               key={key}
               onClick={() => setActiveSection(key)}
