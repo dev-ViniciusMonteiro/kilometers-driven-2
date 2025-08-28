@@ -18,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { email, password } = req.body;
+  const { email, password, nome, perfil, tipo } = req.body;
 
   try {
     const userRecord = await admin.auth().createUser({
@@ -30,7 +30,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await setDoc(doc(db, 'usuarios', userRecord.uid), {
       uid: userRecord.uid,
       email: email,
-      perfil: 'user'
+      nome: nome || '',
+      perfil: perfil || 'user',
+      tipo: tipo || 'motorista'
     });
 
     res.status(201).json({ uid: userRecord.uid, email: userRecord.email });

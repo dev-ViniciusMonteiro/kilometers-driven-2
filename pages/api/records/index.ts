@@ -1,18 +1,40 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { collection, addDoc, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, addDoc, query, where, getDocs, orderBy, limit, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../../lib/firebase';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'POST') {
-    const { userId, kmInicial } = req.body;
+    const { userId, vanId, kmInicial } = req.body;
     
     try {
+      // Verificar se a van existe e pegar KM atual
+      const vanDoc = await getDoc(doc(db, 'vans', vanId));
+      if (!vanDoc.exists()) {
+        return res.status(400).json({ error: 'Van não encontrada' });
+      }
+      
+      const vanData = vanDoc.data();
+      if (kmInicial < vanData.kmAtual) {
+        return res.status(400).json({ error: `KM inicial deve ser maior ou igual a ${vanData.kmAtual}` });
+      }
+      
+      const userDoc = await getDoc(doc(db, 'usuarios', userId));
+      const userData = userDoc.data();
+      
       const docRef = await addDoc(collection(db, 'registros'), {
         userId,
+        vanId,
+        placa: vanData.placa,
+        userTipo: userData?.tipo || 'motorista',
         abertura: {
           kmInicial,
           dataHora: new Date().toISOString()
         }
+      });
+      
+      // Atualizar KM da van na abertura
+      await updateDoc(doc(db, 'vans', vanId), {
+        kmAtual: kmInicial
       });
       
       res.status(201).json({ id: docRef.id });
