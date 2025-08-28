@@ -673,11 +673,11 @@ export default function Admin() {
     });
     
     const statsArray = Object.values(vanStats).sort((a: any, b: any) => b.kmTotal - a.kmTotal);
-    const maxKm = Math.max(...statsArray.map(s => s.kmTotal), 1);
+    const maxKm = Math.max(...statsArray.map((s: any) => s.kmTotal), 1);
     
     return (
       <div className="bar-chart-container">
-        {statsArray.map((stat, index) => (
+        {statsArray.map((stat: any, index: number) => (
           <div key={`${stat.vanPlaca}-${stat.userName}`} className="bar-item">
             <div className="bar-label">
               {stat.vanPlaca} - {stat.userName}
@@ -721,15 +721,15 @@ export default function Admin() {
     const motoristaViagens = motoristaRecords.length;
     const copilotoViagens = copilotoRecords.length;
     
-    const stats = [];
+    const stats: any[] = [];
     if (motoristaKm > 0) stats.push({ label: 'Motoristas', totalKm: motoristaKm, count: motoristaViagens });
     if (copilotoKm > 0) stats.push({ label: 'Copilotos', totalKm: copilotoKm, count: copilotoViagens });
     
-    const maxKm = Math.max(...stats.map(s => s.totalKm), 1);
+    const maxKm = Math.max(...stats.map((s: any) => s.totalKm), 1);
     
     return (
       <div className="bar-chart-container">
-        {stats.map((stat, index) => (
+        {stats.map((stat: any, index: number) => (
           <div key={stat.label} className="bar-item">
             <div className="bar-label">{stat.label} ({stat.count} viagens)</div>
             <div className="bar-wrapper">
