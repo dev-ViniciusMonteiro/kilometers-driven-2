@@ -340,36 +340,7 @@ export default function Admin() {
     }
   };
 
-  const handleEditRecord = async () => {
-    if (!editingRecord) return;
-    
-    setLoading(true);
-    try {
-      const response = await fetch('/api/records/edit', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          id: editingRecord.id, 
-          kmInicial: editKmInicial ? parseInt(editKmInicial) : undefined,
-          kmFinal: editKmFinal === '' ? null : (editKmFinal ? parseInt(editKmFinal) : undefined)
-        })
-      });
-      
-      if (response.ok) {
-        alert('Registro editado com sucesso');
-        setEditingRecord(null);
-        setEditKmInicial('');
-        setEditKmFinal('');
-        loadRecords();
-      } else {
-        alert('Erro ao editar registro');
-      }
-    } catch (error) {
-      alert('Erro ao editar registro');
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   const handleCancelRecord = async (record: any) => {
     if (!confirm(`Tem certeza que deseja deletar este registro?\n\nEsta ação não pode ser desfeita!`)) return;
