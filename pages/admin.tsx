@@ -443,7 +443,7 @@ export default function Admin() {
     }
   };
 
-  const exportCSV = () => {
+  const exportCSV = (): void => {
     const filteredRecords = records.filter(record => {
       if (recordFilters.selectedUser && record.userId !== recordFilters.selectedUser) {
         return false;
@@ -529,7 +529,7 @@ export default function Admin() {
     }));
   };
 
-  const getFilteredRecords = () => {
+  const getFilteredRecords = (): any[] => {
     return records.filter(record => {
       if (chartFilters.selectedUser && record.userId !== chartFilters.selectedUser) {
         return false;
@@ -549,7 +549,7 @@ export default function Admin() {
     });
   };
 
-  const getUserStats = () => {
+  const getUserStats = (): any[] => {
     const filteredRecords = getFilteredRecords();
     
     const motoristaRecords = filteredRecords.filter(r => {
@@ -563,7 +563,7 @@ export default function Admin() {
     });
     
     const totalRecords = motoristaRecords.length + copilotoRecords.length;
-    const stats = [];
+    const stats: any[] = [];
     
     if (motoristaRecords.length > 0) {
       stats.push({
@@ -584,12 +584,12 @@ export default function Admin() {
     return stats;
   };
 
-  const generatePieSlices = () => {
+  const generatePieSlices = (): any[] => {
     const userStats = getUserStats();
     const colors = ['#007bff', '#28a745'];
     let cumulativePercentage = 0;
     
-    return userStats.map((stat, index) => {
+    return userStats.map((stat: any, index: number) => {
       const startAngle = (cumulativePercentage / 100) * 360 - 90;
       const endAngle = ((cumulativePercentage + stat.percentage) / 100) * 360 - 90;
       cumulativePercentage += stat.percentage;
@@ -623,13 +623,13 @@ export default function Admin() {
     });
   };
 
-  const generatePieLegend = () => {
+  const generatePieLegend = (): any => {
     const userStats = getUserStats();
     const colors = ['#007bff', '#28a745', '#dc3545', '#ffc107', '#6c757d', '#17a2b8'];
     
     return (
       <div className="pie-legend-container">
-        {userStats.map((stat, index) => (
+        {userStats.map((stat: any, index: number) => (
           <div key={stat.email} className="pie-legend-item">
             <div 
               className="pie-legend-color" 
@@ -642,7 +642,7 @@ export default function Admin() {
     );
   };
 
-  const generateVanMotoristaChart = () => {
+  const generateVanMotoristaChart = (): any => {
     const filteredRecords = getFilteredRecords();
     
     const vanStats: any = {};
@@ -673,11 +673,11 @@ export default function Admin() {
     });
     
     const statsArray = Object.values(vanStats).sort((a: any, b: any) => b.kmTotal - a.kmTotal);
-    const maxKm = Math.max(...statsArray.map((s: any) => s.kmTotal), 1);
+    const maxKm = Math.max(...(statsArray as any[]).map((s: any) => s.kmTotal), 1);
     
     return (
       <div className="bar-chart-container">
-        {statsArray.map((stat: any, index: number) => (
+        {(statsArray as any[]).map((stat: any, index: number) => (
           <div key={`${stat.vanPlaca}-${stat.userName}`} className="bar-item">
             <div className="bar-label">
               {stat.vanPlaca} - {stat.userName}
@@ -697,7 +697,7 @@ export default function Admin() {
     );
   };
 
-  const generateBarChart = () => {
+  const generateBarChart = (): any => {
     const filteredRecords = getFilteredRecords();
     
     const motoristaRecords = filteredRecords.filter(r => {
@@ -729,7 +729,7 @@ export default function Admin() {
     
     return (
       <div className="bar-chart-container">
-        {stats.map((stat: any, index: number) => (
+        {(stats as any[]).map((stat: any, index: number) => (
           <div key={stat.label} className="bar-item">
             <div className="bar-label">{stat.label} ({stat.count} viagens)</div>
             <div className="bar-wrapper">
