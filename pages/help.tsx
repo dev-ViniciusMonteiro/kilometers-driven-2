@@ -114,7 +114,7 @@ export default function Help() {
                   <div className="step-content">
                     <h3>🏁 Finalizar Viagem</h3>
                     <ul>
-                      <li>Informar KM final (deve ser > KM inicial)</li>
+                      <li>Informar KM final (deve ser &gt; KM inicial)</li>
                       <li>Adicionar observações no diário</li>
                       <li>Clicar "FINALIZAR VIAGEM"</li>
                       <li>Van atualiza KM atual automaticamente</li>
