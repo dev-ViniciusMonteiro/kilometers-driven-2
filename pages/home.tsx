@@ -56,7 +56,7 @@ export default function Home() {
             if (vanResponse.ok) {
               const vansData = await vanResponse.json();
               if (record) {
-                const van = vansData.find((v: any) => v.id === record.vanId);
+                const van = vansData.find((v: any) => v.id === (record as any).vanId);
                 if (van) {
                   setKmValue(van.kmAtual.toString());
                   setKmFinalValue(van.kmAtual.toString());
@@ -148,7 +148,7 @@ export default function Home() {
           // Para fechar: verificar se van do registro aberto ainda tem motorista ativo
           const vanAindaAtiva = registros.some(registro => {
             const isMotorista = !registro.userTipo || registro.userTipo === 'motorista';
-            return registro.vanId === openRecord.vanId && !registro.fechamento && isMotorista;
+            return registro.vanId === (openRecord as any).vanId && !registro.fechamento && isMotorista;
           });
           
           if (vanAindaAtiva) {
@@ -157,7 +157,7 @@ export default function Home() {
             setCanCloseRecord(false);
           } else {
             // Motorista fechou - copiloto pode fechar
-            vansData = [{ id: openRecord.vanId, placa: openRecord.placa }];
+            vansData = [{ id: (openRecord as any).vanId, placa: (openRecord as any).placa }];
             setCanCloseRecord(true);
           }
         }
