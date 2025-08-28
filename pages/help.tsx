@@ -90,7 +90,7 @@ export default function Help() {
                     <h3>🚀 Iniciar Viagem</h3>
                     <ul>
                       <li>Selecionar van disponível</li>
-                      <li>Confirmar KM inicial (deve ser ≥ KM atual da van)</li>
+                      <li>Confirmar KM inicial (deve ser &ge; KM atual da van)</li>
                       <li>Preencher diário de bordo (opcional)</li>
                       <li>Clicar "INICIAR VIAGEM"</li>
                     </ul>
@@ -127,8 +127,8 @@ export default function Help() {
                 <h3>⚠️ Regras Importantes</h3>
                 <ul>
                   <li>Só pode ter 1 viagem aberta por vez</li>
-                  <li>KM final sempre > KM inicial</li>
-                  <li>KM inicial deve ser ≥ KM atual da van</li>
+                  <li>KM final sempre &gt; KM inicial</li>
+                  <li>KM inicial deve ser &ge; KM atual da van</li>
                   <li>Ao finalizar, van fica disponível para outros</li>
                 </ul>
               </div>
@@ -280,8 +280,8 @@ export default function Help() {
                   <div className="solution">
                     <strong>Solução:</strong>
                     <ul>
-                      <li>KM inicial deve ser ≥ KM atual da van</li>
-                      <li>KM final deve ser > KM inicial</li>
+                      <li>KM inicial deve ser &ge; KM atual da van</li>
+                      <li>KM final deve ser &gt; KM inicial</li>
                       <li>Admin pode corrigir KM da van se necessário</li>
                     </ul>
                   </div>
