@@ -710,11 +710,11 @@ export default function Admin() {
       return user && user.tipo === 'copiloto' && r.fechamento?.kmFinal;
     });
     
-    const motoristaKm = motoristaRecords.reduce((sum, record) => {
+    const motoristaKm = motoristaRecords.reduce((sum: number, record: any) => {
       return sum + (record.fechamento.kmFinal - record.abertura.kmInicial);
     }, 0);
     
-    const copilotoKm = copilotoRecords.reduce((sum, record) => {
+    const copilotoKm = copilotoRecords.reduce((sum: number, record: any) => {
       return sum + (record.fechamento.kmFinal - record.abertura.kmInicial);
     }, 0);
     

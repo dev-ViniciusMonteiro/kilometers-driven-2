@@ -374,7 +374,7 @@ export default function Home() {
           
           <button 
             onClick={handleOpen} 
-            disabled={loading || !kmValue || !selectedVan || openRecord || kmError} 
+            disabled={loading || !kmValue || !selectedVan || openRecord || !!kmError} 
             className={`btn-action ${openRecord ? 'btn-completed' : 'btn-green'}`}
           >
             {openRecord ? '✅ VIAGEM INICIADA' : (loading ? '⏳ Abrindo...' : (userTipo === 'copiloto' ? '✅ BATER PONTO ENTRADA' : '✅ INICIAR VIAGEM'))}
@@ -451,7 +451,7 @@ export default function Home() {
           
           <button 
             onClick={handleClose} 
-            disabled={loading || !kmFinalValue || !openRecord || kmFinalError || !canCloseRecord} 
+            disabled={loading || !kmFinalValue || !openRecord || !!kmFinalError || !canCloseRecord} 
             className="btn-action btn-red"
           >
             {!openRecord ? '🔒 INICIE UMA VIAGEM PRIMEIRO' : (loading ? '⏳ Fechando...' : (!canCloseRecord ? '⚠️ AGUARDE MOTORISTA FINALIZAR TRAJETO' : (userTipo === 'copiloto' ? '🏁 BATER PONTO SAÍDA' : '🏁 FINALIZAR VIAGEM')))}
