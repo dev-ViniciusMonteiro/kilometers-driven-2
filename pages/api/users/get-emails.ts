@@ -35,7 +35,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     res.status(200).json(emailMap);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro ao buscar emails:', error);
     res.status(400).json({ error: 'Failed to get emails', details: error instanceof Error ? error.message : 'Unknown error' });
   }

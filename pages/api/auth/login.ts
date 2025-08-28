@@ -19,7 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       email: userCredential.user.email,
       profile: userDoc.data()?.perfil
     });
-  } catch (error) {
+  } catch (error: any) {
     res.status(401).json({ error: 'Invalid credentials' });
   }
 }

@@ -28,7 +28,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     res.status(200).json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro ao alterar senha:', error);
     res.status(400).json({ error: 'Failed to change password' });
   }

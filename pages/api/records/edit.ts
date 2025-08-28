@@ -72,7 +72,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
       
       res.status(200).json({ message: 'Registro atualizado com sucesso' });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao editar registro:', error);
       res.status(500).json({ error: error.message || 'Erro ao editar registro' });
     }
@@ -83,7 +83,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     try {
       await deleteDoc(doc(db, 'registros', id));
       res.status(200).json({ message: 'Registro cancelado com sucesso' });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao cancelar registro:', error);
       res.status(500).json({ error: 'Erro ao cancelar registro' });
     }

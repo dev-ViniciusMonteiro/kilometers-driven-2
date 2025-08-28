@@ -36,7 +36,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     res.status(201).json({ uid: userRecord.uid, email: userRecord.email });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro ao criar usuário:', error);
     res.status(400).json({ error: 'Failed to create user' });
   }

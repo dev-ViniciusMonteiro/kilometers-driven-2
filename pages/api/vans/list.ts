@@ -22,7 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .sort((a: any, b: any) => a.placa.localeCompare(b.placa));
 
     res.status(200).json(vans);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro ao listar vans:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }

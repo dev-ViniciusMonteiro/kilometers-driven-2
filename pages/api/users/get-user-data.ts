@@ -22,7 +22,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const userData = userDoc.data();
     res.status(200).json(userData);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro ao buscar dados do usuário:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }

@@ -38,7 +38,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
       
       res.status(201).json({ id: docRef.id });
-    } catch (error) {
+    } catch (error: any) {
       res.status(400).json({ error: 'Failed to create record' });
     }
   } else if (req.method === 'GET') {
@@ -60,7 +60,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const records = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       
       res.status(200).json(records);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao buscar registros:', error);
       res.status(400).json({ error: 'Failed to fetch records' });
     }

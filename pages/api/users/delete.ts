@@ -32,7 +32,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await deleteDoc(doc(db, 'usuarios', uid));
 
     res.status(200).json({ message: 'Usuário deletado com sucesso' });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro ao deletar usuário:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }

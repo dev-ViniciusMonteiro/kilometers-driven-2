@@ -19,7 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     res.status(200).json({ message: 'KM atualizado com sucesso' });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro ao atualizar KM:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }

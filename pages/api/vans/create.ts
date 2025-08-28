@@ -33,7 +33,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const docRef = await addDoc(collection(db, 'vans'), vanData);
     
     res.status(201).json({ id: docRef.id, ...vanData });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro ao criar van:', error);
     res.status(500).json({ error: 'Erro interno do servidor' });
   }
