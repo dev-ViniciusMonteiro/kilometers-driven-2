@@ -645,7 +645,7 @@ export default function Admin() {
   const generateVanMotoristaChart = () => {
     const filteredRecords = getFilteredRecords();
     
-    const vanStats = {};
+    const vanStats: any = {};
     
     filteredRecords.forEach(record => {
       const user = users.find(u => u.uid === record.userId);
@@ -672,7 +672,7 @@ export default function Admin() {
       }
     });
     
-    const statsArray = Object.values(vanStats).sort((a, b) => b.kmTotal - a.kmTotal);
+    const statsArray = Object.values(vanStats).sort((a: any, b: any) => b.kmTotal - a.kmTotal);
     const maxKm = Math.max(...statsArray.map(s => s.kmTotal), 1);
     
     return (
