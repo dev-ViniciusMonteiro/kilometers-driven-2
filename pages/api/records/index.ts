@@ -4,7 +4,7 @@ import { db } from '../../../lib/firebase';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method === 'POST') {
-    const { userId, vanId, kmInicial } = req.body;
+    const { userId, vanId, kmInicial, rotaId, origem, destino } = req.body;
     
     try {
       // Verificar se a van existe e pegar KM atual
@@ -21,11 +21,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const userDoc = await getDoc(doc(db, 'usuarios', userId));
       const userData = userDoc.data();
       
+      let origemFinal = '';
+      let destinoFinal = '';
+      let rotaIdFinal = null;
+      
+      if (rotaId) {
+        // Motorista - buscar dados da rota
+        const rotaDoc = await getDoc(doc(db, 'rotas', rotaId));
+        const rotaData = rotaDoc.data();
+        origemFinal = rotaData?.origem || '';
+        destinoFinal = rotaData?.destino || '';
+        rotaIdFinal = rotaId;
+      } else if (origem && destino) {
+        // Copiloto - usar origem e destino enviados
+        origemFinal = origem;
+        destinoFinal = destino;
+      }
+      
       const docRef = await addDoc(collection(db, 'registros'), {
         userId,
         vanId,
         placa: vanData.placa,
         userTipo: userData?.tipo || 'motorista',
+        rotaId: rotaIdFinal,
+        origem: origemFinal,
+        destino: destinoFinal,
         abertura: {
           kmInicial,
           dataHora: new Date().toISOString()

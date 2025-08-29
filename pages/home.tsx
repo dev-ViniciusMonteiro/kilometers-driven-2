@@ -29,6 +29,8 @@ export default function Home() {
   const [userRecords, setUserRecords] = useState<any[]>([]);
   const [vans, setVans] = useState<any[]>([]);
   const [selectedVan, setSelectedVan] = useState('');
+  const [rotas, setRotas] = useState<any[]>([]);
+  const [selectedRota, setSelectedRota] = useState('');
   const router = useRouter();
 
   useEffect(() => {
@@ -84,8 +86,11 @@ export default function Home() {
   useEffect(() => {
     if (userTipo) {
       loadVans();
+      loadRotas();
     }
   }, [userTipo, openRecord]);
+  
+
   
   useEffect(() => {
     if (userTipo === 'copiloto' && openRecord) {
@@ -93,6 +98,18 @@ export default function Home() {
       return () => clearInterval(interval);
     }
   }, [userTipo, openRecord]);
+
+  const loadRotas = async () => {
+    try {
+      const response = await fetch('/api/rotas/list');
+      const rotasData = await response.json();
+      setRotas(rotasData);
+    } catch (error) {
+      console.error('Erro ao carregar rotas:', error);
+    }
+  };
+
+
 
   const loadVans = async () => {
     try {
@@ -139,7 +156,9 @@ export default function Home() {
               
               vansComMotorista.push({
                 ...van,
-                nomeMotorista
+                nomeMotorista,
+                origem: registroMotorista.origem || '',
+                destino: registroMotorista.destino || ''
               });
             }
           }
@@ -165,6 +184,8 @@ export default function Home() {
       
       setVans(vansData);
       
+
+      
       // Para motoristas, sempre podem fechar se têm registro aberto
       if (userTipo === 'motorista' && openRecord) {
         setCanCloseRecord(true);
@@ -182,6 +203,12 @@ export default function Home() {
       return;
     }
     
+    // Para motorista, rota é obrigatória
+    if (userTipo === 'motorista' && !selectedRota) {
+      alert('Selecione uma rota');
+      return;
+    }
+    
     setLoading(true);
     try {
       const response = await fetch('/api/records', {
@@ -190,7 +217,10 @@ export default function Home() {
         body: JSON.stringify({ 
           userId: user.uid, 
           vanId: selectedVan, 
-          kmInicial: parseInt(kmValue) 
+          kmInicial: parseInt(kmValue),
+          rotaId: userTipo === 'motorista' ? selectedRota : null,
+          origem: userTipo === 'copiloto' ? selectedRota.split(' → ')[0] : null,
+          destino: userTipo === 'copiloto' ? selectedRota.split(' → ')[1] : null
         })
       });
       
@@ -270,6 +300,10 @@ export default function Home() {
     }
   };
 
+  const refreshData = () => {
+    window.location.reload();
+  };
+
   const logout = () => {
     auth.signOut();
     router.push('/login');
@@ -299,6 +333,7 @@ export default function Home() {
         <div className="header-buttons">
           <button onClick={() => router.push('/help')} className="btn-secondary">📚 Ajuda</button>
           <button onClick={loadUserRecords} className="btn-secondary">📋 Meus Registros</button>
+          <button onClick={refreshData} className="btn-primary">🔄 Atualizar</button>
           <button onClick={logout} className="btn-secondary">🚪 Sair</button>
         </div>
       </header>
@@ -306,7 +341,7 @@ export default function Home() {
       <div className="cards-container">
         <div className={`action-card abertura ${openRecord ? 'disabled' : ''}`}>
           <h2 className="action-title green">ABERTURA</h2>
-          <p className="instruction">{userTipo === 'copiloto' ? 'Selecione a van para bater o ponto de entrada' : 'Selecione a van e confirme o KM para iniciar sua viagem'}</p>
+          <p className="instruction">{userTipo === 'copiloto' ? 'Selecione a van para bater o ponto de entrada (monitora)' : 'Selecione a van e confirme o KM para iniciar sua viagem'}</p>
           
           <select
             value={selectedVan}
@@ -318,6 +353,10 @@ export default function Home() {
                 setKmValue(kmAtual);
                 if (userTipo === 'copiloto') {
                   setKmFinalValue(kmAtual);
+                  // Para monitora, mostrar a rota do motorista
+                  if (van.origem && van.destino) {
+                    setSelectedRota(`${van.origem} → ${van.destino}`);
+                  }
                 }
               }
             }}
@@ -335,6 +374,33 @@ export default function Home() {
               </option>
             ))}
           </select>
+          
+          {userTipo === 'motorista' ? (
+            <select
+              value={selectedRota}
+              onChange={(e) => setSelectedRota(e.target.value)}
+              className="input large"
+              disabled={openRecord}
+            >
+              <option value="">🗺️ Selecione a rota</option>
+              {rotas.map((rota: any) => (
+                <option key={rota.id} value={rota.id}>
+                  {rota.origem} → {rota.destino}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="rota-display">
+              <label>Origem → Destino:</label>
+              <input
+                type="text"
+                value={selectedRota || 'Aguardando seleção da van...'}
+                readOnly
+                className="input large"
+                placeholder="Rota será exibida após selecionar van"
+              />
+            </div>
+          )}
           
           <div className="km-display">
             <label>KM Inicial:</label>
@@ -355,7 +421,7 @@ export default function Home() {
                 }
               }}
               className={`input large km-input ${kmError ? 'error-input' : ''}`}
-              placeholder={userTipo === 'copiloto' ? 'KM automático da van' : 'Digite o KM atual'}
+              placeholder={userTipo === 'copiloto' ? 'KM automático da van (monitora)' : 'Digite o KM atual'}
               readOnly={userTipo === 'copiloto'}
               disabled={openRecord}
             />
@@ -374,16 +440,16 @@ export default function Home() {
           
           <button 
             onClick={handleOpen} 
-            disabled={loading || !kmValue || !selectedVan || openRecord || !!kmError} 
+            disabled={loading || !kmValue || !selectedVan || (userTipo === 'motorista' && !selectedRota) || openRecord || !!kmError} 
             className={`btn-action ${openRecord ? 'btn-completed' : 'btn-green'}`}
           >
-            {openRecord ? '✅ VIAGEM INICIADA' : (loading ? '⏳ Abrindo...' : (userTipo === 'copiloto' ? '✅ BATER PONTO ENTRADA' : '✅ INICIAR VIAGEM'))}
+            {openRecord ? '✅ VIAGEM INICIADA' : (loading ? '⏳ Abrindo...' : (userTipo === 'copiloto' ? '✅ BATER PONTO ENTRADA (MONITORA)' : '✅ INICIAR VIAGEM'))}
           </button>
         </div>
 
         <div className={`action-card fechamento ${!openRecord ? 'disabled' : ''}`}>
           <h2 className="action-title red">FECHAMENTO</h2>
-          <p className="instruction">{userTipo === 'copiloto' ? 'Bater o ponto de saída' : 'Informe o KM final para encerrar sua viagem'}</p>
+          <p className="instruction">{userTipo === 'copiloto' ? 'Bater o ponto de saída (monitora)' : 'Informe o KM final para encerrar sua viagem'}</p>
           
           {openRecord && (
             <div className="trip-info">
@@ -418,7 +484,7 @@ export default function Home() {
                 }
               }}
               className={`input large km-input ${kmFinalError ? 'error-input' : ''}`}
-              placeholder={openRecord ? (userTipo === 'copiloto' ? 'KM automático da van' : 'Digite o KM final') : 'Inicie uma viagem primeiro'}
+              placeholder={openRecord ? (userTipo === 'copiloto' ? 'KM automático da van (monitora)' : 'Digite o KM final') : 'Inicie uma viagem primeiro'}
               min={openRecord ? (openRecord as any).abertura.kmInicial : undefined}
               readOnly={userTipo === 'copiloto'}
               disabled={!openRecord}
@@ -454,7 +520,7 @@ export default function Home() {
             disabled={loading || !kmFinalValue || !openRecord || !!kmFinalError || !canCloseRecord} 
             className="btn-action btn-red"
           >
-            {!openRecord ? '🔒 INICIE UMA VIAGEM PRIMEIRO' : (loading ? '⏳ Fechando...' : (!canCloseRecord ? '⚠️ AGUARDE MOTORISTA FINALIZAR TRAJETO' : (userTipo === 'copiloto' ? '🏁 BATER PONTO SAÍDA' : '🏁 FINALIZAR VIAGEM')))}
+            {!openRecord ? '🔒 INICIE UMA VIAGEM PRIMEIRO' : (loading ? '⏳ Fechando...' : (!canCloseRecord ? '⚠️ AGUARDE MOTORISTA FINALIZAR TRAJETO' : (userTipo === 'copiloto' ? '🏁 BATER PONTO SAÍDA (MONITORA)' : '🏁 FINALIZAR VIAGEM')))}
           </button>
         </div>
       </div>

@@ -6,6 +6,118 @@ import { getAllRecords } from '../lib/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import { collection, getDocs, doc, getDoc, setDoc } from 'firebase/firestore';
 
+function RotaManagement() {
+  const [rotas, setRotas] = useState<any[]>([]);
+  const [newRotaOrigem, setNewRotaOrigem] = useState('');
+  const [newRotaDestino, setNewRotaDestino] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    loadRotas();
+  }, []);
+
+  const loadRotas = async () => {
+    try {
+      const response = await fetch('/api/rotas/list');
+      const rotasData = await response.json();
+      setRotas(rotasData);
+    } catch (error) {
+      console.error('Erro ao carregar rotas:', error);
+    }
+  };
+
+  const handleCreateRota = async () => {
+    if (!newRotaOrigem || !newRotaDestino) return;
+    
+    setLoading(true);
+    try {
+      const response = await fetch('/api/rotas/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ origem: newRotaOrigem, destino: newRotaDestino })
+      });
+      
+      if (response.ok) {
+        loadRotas();
+        setNewRotaOrigem('');
+        setNewRotaDestino('');
+        alert('Rota cadastrada com sucesso!');
+      } else {
+        const error = await response.json();
+        alert(error.error || 'Erro ao cadastrar rota');
+      }
+    } catch (error) {
+      alert('Erro ao cadastrar rota');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteRota = async (rotaId: string) => {
+    if (!confirm('Tem certeza que deseja deletar esta rota?')) return;
+    
+    try {
+      const response = await fetch('/api/rotas/delete', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: rotaId })
+      });
+      
+      if (response.ok) {
+        loadRotas();
+        alert('Rota deletada com sucesso!');
+      } else {
+        alert('Erro ao deletar rota');
+      }
+    } catch (error) {
+      alert('Erro ao deletar rota');
+    }
+  };
+
+  return (
+    <div>
+      <div className="form-group" style={{padding: '20px'}}>
+        <input
+          type="text"
+          value={newRotaOrigem}
+          onChange={(e) => setNewRotaOrigem(e.target.value)}
+          placeholder="Origem (ex: São Paulo)"
+          className="input"
+        />
+        <input
+          type="text"
+          value={newRotaDestino}
+          onChange={(e) => setNewRotaDestino(e.target.value)}
+          placeholder="Destino (ex: Rio de Janeiro)"
+          className="input"
+        />
+        <button onClick={handleCreateRota} disabled={loading} className="btn-primary">
+          {loading ? 'Cadastrando...' : 'Cadastrar Rota'}
+        </button>
+      </div>
+
+      <div className="vans-list" style={{padding: '20px', paddingTop: '0'}}>
+        <h3>Rotas Cadastradas ({Array.isArray(rotas) ? rotas.length : 0})</h3>
+        {Array.isArray(rotas) && rotas.length > 0 ? rotas.map((rota: any) => (
+          <div key={rota.id} className="van-item">
+            <div className="van-info">
+              <span className="van-placa">{rota.origem} → {rota.destino}</span>
+            </div>
+            <div className="van-actions">
+              <button 
+                onClick={() => handleDeleteRota(rota.id)} 
+                className="btn-danger btn-small"
+              >
+                Deletar
+              </button>
+            </div>
+          </div>
+        )) : <p>Nenhuma rota cadastrada</p>}
+      </div>
+    </div>
+  );
+}
+
 function VanManagement() {
   const [vans, setVans] = useState<any[]>([]);
   const [newVanPlaca, setNewVanPlaca] = useState('');
@@ -207,6 +319,7 @@ export default function Admin() {
   const [expandedSections, setExpandedSections] = useState({
     createUser: false,
     vans: false,
+    rotas: false,
     users: false,
     records: false,
     charts: false
@@ -443,7 +556,7 @@ export default function Admin() {
     }
   };
 
-  const exportCSV = (): void => {
+  const getFilteredData = () => {
     const filteredRecords = records.filter((record: any) => {
       if (recordFilters.selectedUser && record.userId !== recordFilters.selectedUser) {
         return false;
@@ -462,18 +575,19 @@ export default function Admin() {
       return true;
     });
     
-    const csvContent = [];
-    
-    csvContent.push(['Nome', 'Tipo', 'KM Inicial', 'Data Abertura', 'KM Final', 'Data Fechamento', 'Distância', 'Diário']);
+    const data = [];
+    data.push(['Nome', 'Tipo', 'Van', 'Rota', 'KM Inicial', 'Data Abertura', 'KM Final', 'Data Fechamento', 'Distância', 'Diário']);
     
     filteredRecords.forEach(record => {
       const user = users.find(u => u.uid === record.userId);
       const distancia = record.fechamento?.kmFinal && record.abertura?.kmInicial 
         ? record.fechamento.kmFinal - record.abertura.kmInicial 
         : null;
-      csvContent.push([
+      data.push([
         user?.nome || '',
         user?.tipo || 'motorista',
+        record.placa || '-',
+        record.origem && record.destino ? `${record.origem} → ${record.destino}` : '-',
         record.abertura?.kmInicial || '',
         record.abertura?.dataHora ? new Date(record.abertura.dataHora).toLocaleString('pt-BR') : '',
         record.fechamento?.kmFinal || 'Em aberto',
@@ -483,19 +597,27 @@ export default function Admin() {
       ]);
     });
     
+    const selectedUser = recordFilters.selectedUser ? users.find(u => u.uid === recordFilters.selectedUser) : null;
+    
+    return { data, selectedUser, filteredRecords };
+  };
+
+  const exportCSV = (): void => {
+    const { data } = getFilteredData();
+    
     // Se tem filtro por usuário, adicionar rodapé personalizado
     if (recordFilters.selectedUser) {
       const selectedUser = users.find(u => u.uid === recordFilters.selectedUser);
-      csvContent.push(['']);
-      csvContent.push(['']);
-      csvContent.push([`Data de Exportação: ${new Date().toLocaleString('pt-BR')}`]);
-      csvContent.push([`Funcionário: ${selectedUser?.nome || 'N/A'}`]);
-      csvContent.push([`Período: ${recordFilters.startDate || 'Todas'} até ${recordFilters.endDate || 'Todas'}`]);
-      csvContent.push(['']);
-      csvContent.push(['Assinatura: _________________________________']);
+      data.push(['']);
+      data.push(['']);
+      data.push([`Data de Exportação: ${new Date().toLocaleString('pt-BR')}`]);
+      data.push([`Funcionário: ${selectedUser?.nome || 'N/A'}`]);
+      data.push([`Período: ${recordFilters.startDate || 'Todas'} até ${recordFilters.endDate || 'Todas'}`]);
+      data.push(['']);
+      data.push(['Assinatura: _________________________________']);
     }
     
-    const csvString = csvContent.map((row: any) => row.map((cell: any) => `"${cell}"`).join(',')).join('\n');
+    const csvString = data.map((row: any) => row.map((cell: any) => `"${cell}"`).join(',')).join('\n');
 
     const blob = new Blob([csvString], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -503,6 +625,97 @@ export default function Admin() {
     a.href = url;
     a.download = 'registros.csv';
     a.click();
+  };
+
+  const exportExcel = (): void => {
+    const XLSX = require('xlsx');
+    const { data, selectedUser } = getFilteredData();
+    
+    // Se tem filtro por usuário, adicionar rodapé personalizado
+    if (selectedUser) {
+      data.push(['']);
+      data.push(['']);
+      data.push([`Data de Exportação: ${new Date().toLocaleString('pt-BR')}`]);
+      data.push([`Funcionário: ${selectedUser?.nome || 'N/A'}`]);
+      data.push([`Período: ${recordFilters.startDate || 'Todas'} até ${recordFilters.endDate || 'Todas'}`]);
+      data.push(['']);
+      data.push(['Assinatura: _________________________________']);
+    }
+    
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Registros');
+    XLSX.writeFile(wb, 'registros.xlsx');
+  };
+
+  const exportPDF = (): void => {
+    const { data, selectedUser } = getFilteredData();
+    
+    const doc = new (require('jspdf').jsPDF)();
+    
+    // Título
+    doc.setFontSize(16);
+    doc.text('Relatório de Registros', 14, 22);
+    
+    let y = 40;
+    doc.setFontSize(10);
+    
+    // Dados em formato de lista
+    data.slice(1).forEach((row: any, index: number) => {
+      if (row.some((cell: any) => cell && cell.toString().trim())) {
+        // Cabeçalho do registro
+        doc.setFontSize(12);
+        doc.text(`Registro ${index + 1}`, 14, y);
+        y += 8;
+        
+        doc.setFontSize(10);
+        doc.text(`Nome: ${row[0] || '-'}`, 14, y);
+        y += 6;
+        doc.text(`Tipo: ${row[1] || '-'}`, 14, y);
+        y += 6;
+        doc.text(`Van: ${row[2] || '-'}`, 14, y);
+        y += 6;
+        doc.text(`Rota: ${row[3] || '-'}`, 14, y);
+        y += 6;
+        doc.text(`KM Inicial: ${row[4] || '-'}`, 14, y);
+        y += 6;
+        doc.text(`Data Abertura: ${row[5] || '-'}`, 14, y);
+        y += 6;
+        doc.text(`KM Final: ${row[6] || 'Em aberto'}`, 14, y);
+        y += 6;
+        doc.text(`Data Fechamento: ${row[7] || 'Em aberto'}`, 14, y);
+        y += 6;
+        doc.text(`Distância: ${row[8] || '-'}`, 14, y);
+        y += 6;
+        doc.text(`Observações: ${row[9] || '-'}`, 14, y);
+        y += 12;
+        
+        // Linha separadora
+        doc.line(14, y - 6, 190, y - 6);
+        y += 6;
+        
+        if (y > 250) {
+          doc.addPage();
+          y = 20;
+        }
+      }
+    });
+    
+    // Rodapé se tem filtro por usuário
+    if (selectedUser) {
+      y += 20;
+      if (y > 230) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.setFontSize(10);
+      doc.text(`Data de Exportação: ${new Date().toLocaleString('pt-BR')}`, 14, y);
+      doc.text(`Funcionário: ${selectedUser?.nome || 'N/A'}`, 14, y + 10);
+      doc.text(`Período: ${recordFilters.startDate || 'Todas'} até ${recordFilters.endDate || 'Todas'}`, 14, y + 20);
+      doc.text('Assinatura: _________________________________', 14, y + 40);
+    }
+    
+    doc.save('registros.pdf');
   };
 
   const logout = () => {
@@ -753,7 +966,7 @@ export default function Admin() {
         <h1>Painel Administrativo</h1>
         <div className="header-buttons">
           <button onClick={() => router.push('/help')} className="btn-secondary">📚 Ajuda</button>
-          <button onClick={refreshAllData} className="btn-primary">Refresh</button>
+          <button onClick={refreshAllData} className="btn-primary">Atualizar</button>
           <button onClick={logout} className="btn-secondary">Sair</button>
         </div>
       </header>
@@ -817,6 +1030,14 @@ export default function Admin() {
           <span className="toggle-icon">{expandedSections.vans ? '−' : '+'}</span>
         </div>
         {expandedSections.vans && <VanManagement />}
+      </section>
+
+      <section className="admin-section">
+        <div className="section-header" onClick={() => toggleSection('rotas')}>
+          <h2>Gerenciar Rotas</h2>
+          <span className="toggle-icon">{expandedSections.rotas ? '−' : '+'}</span>
+        </div>
+        {expandedSections.rotas && <RotaManagement />}
       </section>
 
       <section className="admin-section">
@@ -970,7 +1191,9 @@ export default function Admin() {
         <div className="section-header" onClick={() => toggleSection('records')}>
           <h2>Registros ({records.length})</h2>
           <div className="section-actions" onClick={(e) => e.stopPropagation()}>
-            <button onClick={exportCSV} className="btn-primary">Exportar CSV</button>
+            <button onClick={exportCSV} className="btn-secondary">CSV</button>
+            <button onClick={exportExcel} className="btn-secondary">Excel</button>
+            <button onClick={exportPDF} className="btn-secondary">PDF</button>
             <span className="toggle-icon">{expandedSections.records ? '−' : '+'}</span>
           </div>
         </div>
@@ -1011,6 +1234,8 @@ export default function Admin() {
                 <tr>
                   <th>Nome</th>
                   <th>Tipo</th>
+                  <th>Van</th>
+                  <th>Rota</th>
                   <th>KM Inicial</th>
                   <th>Data Abertura</th>
                   <th>KM Final</th>
@@ -1046,6 +1271,8 @@ export default function Admin() {
                     <tr key={record.id}>
                       <td>{user?.nome || ''}</td>
                       <td>{user?.tipo || 'motorista'}</td>
+                      <td>{record.placa || '-'}</td>
+                      <td>{record.origem && record.destino ? `${record.origem} → ${record.destino}` : '-'}</td>
                       <td>{record.abertura?.kmInicial}</td>
                       <td>{record.abertura?.dataHora ? new Date(record.abertura.dataHora).toLocaleString('pt-BR') : ''}</td>
                       <td>{record.fechamento?.kmFinal || 'Em aberto'}</td>
