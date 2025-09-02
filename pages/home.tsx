@@ -33,6 +33,8 @@ export default function Home() {
   const [selectedRota, setSelectedRota] = useState('');
   const [showRotaModal, setShowRotaModal] = useState(false);
   const [rotaSearch, setRotaSearch] = useState('');
+  const [showVanModal, setShowVanModal] = useState(false);
+  const [vanSearch, setVanSearch] = useState('');
   const router = useRouter();
 
   useEffect(() => {
@@ -313,28 +315,18 @@ export default function Home() {
           <p className="instruction">{userTipo === 'copiloto' ? 'Selecione a van para bater o ponto de entrada (monitora)' : 'Selecione a van e confirme o KM para iniciar sua viagem'}</p>
           
           {userTipo === 'motorista' && (
-            <select
-              value={selectedVan}
-              onChange={(e) => {
-                setSelectedVan(e.target.value);
-                const van = vans.find(v => v.id === e.target.value);
-                if (van) {
-                  const kmAtual = van.kmAtual.toString();
-                  setKmValue(kmAtual);
-                }
-              }}
-              className="input large"
+            <button 
+              onClick={() => setShowVanModal(true)}
               disabled={openRecord}
+              className="input large"
+              style={{textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}
             >
-              <option value="">
-                {vans.length === 0 ? '⚠️ Todas as vans ocupadas' : '🚐 Selecione uma van'}
-              </option>
-              {vans.map((van: any) => (
-                <option key={van.id} value={van.id}>
-                  {van.placa} - KM: {van.kmAtual}
-                </option>
-              ))}
-            </select>
+              <span>{selectedVan ? 
+                vans.find(v => v.id === selectedVan)?.placa + ' - KM: ' + vans.find(v => v.id === selectedVan)?.kmAtual :
+                (vans.length === 0 ? '⚠️ Todas as vans ocupadas' : '🚐 Selecione uma van')
+              }</span>
+              <span>🔍</span>
+            </button>
           )}
           
           <button 
@@ -606,6 +598,106 @@ export default function Home() {
                 }).length === 0 && rotaSearch && (
                   <div style={{padding: '20px', textAlign: 'center', color: '#999'}}>
                     Nenhuma rota encontrada para "{rotaSearch}"
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {showVanModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'flex-end'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            width: '100%',
+            maxHeight: '70vh',
+            borderRadius: '15px 15px 0 0',
+            display: 'flex',
+            flexDirection: 'column',
+            marginBottom: '20px'
+          }}>
+            <div style={{
+              padding: '15px 20px',
+              borderBottom: '1px solid #eee',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <h2 style={{margin: 0}}>🔍 Buscar Van</h2>
+              <button onClick={() => setShowVanModal(false)} className="btn-secondary">Fechar</button>
+            </div>
+            
+            <div style={{padding: '15px 20px', flex: 1, display: 'flex', flexDirection: 'column'}}>
+              <input
+                type="text"
+                value={vanSearch}
+                onChange={(e) => setVanSearch(e.target.value)}
+                placeholder="Digite para buscar (ex: ABC-1234)"
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  border: '1px solid #ddd',
+                  borderRadius: '5px',
+                  marginBottom: '15px',
+                  fontSize: '16px'
+                }}
+              />
+              
+              <div style={{height: '400px', overflowY: 'scroll', WebkitOverflowScrolling: 'touch'}}>
+                {vans.filter(van => {
+                  if (!vanSearch) return true;
+                  const vanText = `${van.placa} ${van.kmAtual}`.toLowerCase();
+                  return vanText.includes(vanSearch.toLowerCase());
+                }).map((van: any) => (
+                  <div
+                    key={van.id}
+                    onClick={() => {
+                      setSelectedVan(van.id);
+                      setKmValue(van.kmAtual.toString());
+                      setShowVanModal(false);
+                      setVanSearch('');
+                    }}
+                    style={{
+                      padding: '15px',
+                      borderBottom: '1px solid #eee',
+                      cursor: 'pointer',
+                      backgroundColor: 'white',
+                      fontSize: '16px'
+                    }}
+                    onTouchStart={(e) => (e.target as HTMLElement).style.backgroundColor = '#f5f5f5'}
+                    onTouchEnd={(e) => (e.target as HTMLElement).style.backgroundColor = 'white'}
+                  >
+                    <strong>{van.placa}</strong>
+                    <div style={{fontSize: '14px', color: '#666', marginTop: '5px'}}>
+                      KM Atual: {van.kmAtual}
+                    </div>
+                  </div>
+                ))}
+
+                {vans.filter(van => {
+                  if (!vanSearch) return true;
+                  const vanText = `${van.placa} ${van.kmAtual}`.toLowerCase();
+                  return vanText.includes(vanSearch.toLowerCase());
+                }).length === 0 && vanSearch && (
+                  <div style={{padding: '20px', textAlign: 'center', color: '#999'}}>
+                    Nenhuma van encontrada para "{vanSearch}"
+                  </div>
+                )}
+                
+                {vans.length === 0 && (
+                  <div style={{padding: '20px', textAlign: 'center', color: '#999'}}>
+                    ⚠️ Todas as vans estão ocupadas
                   </div>
                 )}
               </div>

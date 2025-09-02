@@ -698,13 +698,13 @@ export default function Admin() {
         const recordDate = new Date(record.abertura?.dataHora);
         
         if (recordFilters.startDate) {
-          const startDate = new Date(recordFilters.startDate + 'T00:00:00');
+          const startDate = new Date(recordFilters.startDate + 'T00:00:00-03:00');
           if (recordDate < startDate) {
             return false;
           }
         }
         if (recordFilters.endDate) {
-          const endDate = new Date(recordFilters.endDate + 'T23:59:59');
+          const endDate = new Date(recordFilters.endDate + 'T23:59:59-03:00');
           if (recordDate > endDate) {
             return false;
           }
@@ -763,7 +763,7 @@ export default function Admin() {
       data.push(['']);
       data.push([`Data de Exportação: ${new Date().toLocaleString('pt-BR')}`]);
       data.push([`Funcionário: ${selectedUser?.nome || 'N/A'}`]);
-      data.push([`Período: ${recordFilters.startDate ? new Date(recordFilters.startDate).toLocaleDateString('pt-BR') : 'Todas'} até ${recordFilters.endDate ? new Date(recordFilters.endDate).toLocaleDateString('pt-BR') : 'Todas'}`]);
+      data.push([`Período: ${recordFilters.startDate ? new Date(recordFilters.startDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Todas'} até ${recordFilters.endDate ? new Date(recordFilters.endDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Todas'}`]);
       data.push(['']);
       data.push(['Assinatura: _________________________________']);
     }
@@ -788,7 +788,7 @@ export default function Admin() {
       data.push(['']);
       data.push([`Data de Exportação: ${new Date().toLocaleString('pt-BR')}`]);
       data.push([`Funcionário: ${selectedUser?.nome || 'N/A'}`]);
-      data.push([`Período: ${recordFilters.startDate ? new Date(recordFilters.startDate).toLocaleDateString('pt-BR') : 'Todas'} até ${recordFilters.endDate ? new Date(recordFilters.endDate).toLocaleDateString('pt-BR') : 'Todas'}`]);
+      data.push([`Período: ${recordFilters.startDate ? new Date(recordFilters.startDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Todas'} até ${recordFilters.endDate ? new Date(recordFilters.endDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Todas'}`]);
       data.push(['']);
       data.push(['Assinatura: _________________________________']);
     }
@@ -1080,10 +1080,10 @@ export default function Admin() {
                 
                 if (jornadasFilters.startDate || jornadasFilters.endDate) {
                   const recordDate = new Date(record.abertura?.dataHora);
-                  if (jornadasFilters.startDate && recordDate < new Date(jornadasFilters.startDate)) {
+                  if (jornadasFilters.startDate && recordDate < new Date(jornadasFilters.startDate + 'T00:00:00-03:00')) {
                     return false;
                   }
-                  if (jornadasFilters.endDate && recordDate > new Date(jornadasFilters.endDate + 'T23:59:59')) {
+                  if (jornadasFilters.endDate && recordDate > new Date(jornadasFilters.endDate + 'T23:59:59-03:00')) {
                     return false;
                   }
                 }
@@ -1170,7 +1170,7 @@ export default function Admin() {
       doc.setFontSize(10);
       doc.text(`Data de Exportação: ${new Date().toLocaleString('pt-BR')}`, 14, y);
       doc.text(`Funcionário: ${selectedUser?.nome || 'N/A'}`, 14, y + 10);
-      doc.text(`Período: ${recordFilters.startDate ? new Date(recordFilters.startDate).toLocaleDateString('pt-BR') : 'Todas'} até ${recordFilters.endDate ? new Date(recordFilters.endDate).toLocaleDateString('pt-BR') : 'Todas'}`, 14, y + 20);
+      doc.text(`Período: ${recordFilters.startDate ? new Date(recordFilters.startDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Todas'} até ${recordFilters.endDate ? new Date(recordFilters.endDate + 'T12:00:00').toLocaleDateString('pt-BR') : 'Todas'}`, 14, y + 20);
       doc.text('Assinatura: _________________________________', 14, y + 40);
     }
     
@@ -1209,10 +1209,10 @@ export default function Admin() {
       
       if (chartFilters.startDate || chartFilters.endDate) {
         const recordDate = new Date(record.abertura?.dataHora);
-        if (chartFilters.startDate && recordDate < new Date(chartFilters.startDate)) {
+        if (chartFilters.startDate && recordDate < new Date(chartFilters.startDate + 'T00:00:00-03:00')) {
           return false;
         }
-        if (chartFilters.endDate && recordDate > new Date(chartFilters.endDate + 'T23:59:59')) {
+        if (chartFilters.endDate && recordDate > new Date(chartFilters.endDate + 'T23:59:59-03:00')) {
           return false;
         }
       }
@@ -1732,13 +1732,13 @@ export default function Admin() {
                     const recordDate = new Date(record.abertura?.dataHora);
                     
                     if (recordFilters.startDate) {
-                      const startDate = new Date(recordFilters.startDate + 'T00:00:00');
+                      const startDate = new Date(recordFilters.startDate + 'T00:00:00-03:00');
                       if (recordDate < startDate) {
                         return false;
                       }
                     }
                     if (recordFilters.endDate) {
-                      const endDate = new Date(recordFilters.endDate + 'T23:59:59');
+                      const endDate = new Date(recordFilters.endDate + 'T23:59:59-03:00');
                       if (recordDate > endDate) {
                         return false;
                       }
