@@ -592,8 +592,8 @@ export default function Home() {
                       backgroundColor: 'white',
                       fontSize: '16px'
                     }}
-                    onTouchStart={(e) => e.target.style.backgroundColor = '#f5f5f5'}
-                    onTouchEnd={(e) => e.target.style.backgroundColor = 'white'}
+                    onTouchStart={(e) => (e.target as HTMLElement).style.backgroundColor = '#f5f5f5'}
+                    onTouchEnd={(e) => (e.target as HTMLElement).style.backgroundColor = 'white'}
                   >
                     <strong>{rota.origem} → {rota.destino}</strong>
                   </div>
