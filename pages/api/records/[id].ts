@@ -18,39 +18,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     
     const registroData = registroDoc.data();
+    const userTipo = registroData.userTipo || 'motorista';
     
-    // Validar KM final
-    if (kmFinal < registroData.abertura.kmInicial) {
-      return res.status(400).json({ error: `KM final deve ser maior ou igual a ${registroData.abertura.kmInicial}` });
-    }
-    
-    // Verificar se copiloto pode fechar (só se motorista fechou)
-    if (registroData.userTipo === 'copiloto') {
-      const registrosSnapshot = await getDocs(collection(db, 'registros'));
-      const motoristaFechado = registrosSnapshot.docs.find(doc => {
-        const registro = doc.data();
-        const isMotorista = !registro.userTipo || registro.userTipo === 'motorista';
-        return registro.vanId === registroData.vanId && 
-               registro.fechamento && 
-               isMotorista;
-      });
-      
-      if (!motoristaFechado) {
-        return res.status(400).json({ error: 'Aguarde o motorista finalizar primeiro' });
+    // Validar KM final apenas para motorista
+    if (userTipo === 'motorista') {
+      if (!kmFinal) {
+        return res.status(400).json({ error: 'KM final é obrigatório para motorista' });
+      }
+      if (kmFinal < registroData.abertura.kmInicial) {
+        return res.status(400).json({ error: `KM final deve ser maior ou igual a ${registroData.abertura.kmInicial}` });
       }
     }
     
+    // Copiloto pode fechar livremente agora
+    
     // Atualizar o fechamento do registro
-    await updateDoc(doc(db, 'registros', id as string), {
+    const updateData: any = {
       fechamento: {
-        kmFinal,
         dataHora: new Date().toISOString(),
         diarioBordo: req.body.diarioBordo || null
       }
-    });
+    };
     
-    // Atualizar o KM atual da van
-    if (registroData.vanId) {
+    // Adicionar KM final apenas para motorista
+    if (userTipo === 'motorista' && kmFinal) {
+      updateData.fechamento.kmFinal = kmFinal;
+    }
+    
+    await updateDoc(doc(db, 'registros', id as string), updateData);
+    
+    // Atualizar o KM atual da van (apenas para motorista)
+    if (userTipo === 'motorista' && registroData.vanId && kmFinal) {
       await updateDoc(doc(db, 'vans', registroData.vanId), {
         kmAtual: kmFinal
       });

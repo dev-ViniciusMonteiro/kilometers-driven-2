@@ -7,19 +7,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { userId, vanId, kmInicial, rotaId, origem, destino } = req.body;
     
     try {
-      // Verificar se a van existe e pegar KM atual
-      const vanDoc = await getDoc(doc(db, 'vans', vanId));
-      if (!vanDoc.exists()) {
-        return res.status(400).json({ error: 'Van não encontrada' });
-      }
-      
-      const vanData = vanDoc.data();
-      if (kmInicial < vanData.kmAtual) {
-        return res.status(400).json({ error: `KM inicial deve ser maior ou igual a ${vanData.kmAtual}` });
-      }
-      
       const userDoc = await getDoc(doc(db, 'usuarios', userId));
       const userData = userDoc.data();
+      const userTipo = userData?.tipo || 'motorista';
+      
+      let vanData = null;
+      
+      if (userTipo === 'motorista') {
+        // Verificar se a van existe e pegar KM atual (apenas para motorista)
+        const vanDoc = await getDoc(doc(db, 'vans', vanId));
+        if (!vanDoc.exists()) {
+          return res.status(400).json({ error: 'Van não encontrada' });
+        }
+        
+        vanData = vanDoc.data();
+        if (kmInicial < vanData.kmAtual) {
+          return res.status(400).json({ error: `KM inicial deve ser maior ou igual a ${vanData.kmAtual}` });
+        }
+      }
       
       let origemFinal = '';
       let destinoFinal = '';
@@ -38,24 +43,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         destinoFinal = destino;
       }
       
-      const docRef = await addDoc(collection(db, 'registros'), {
+      const registroData: any = {
         userId,
-        vanId,
-        placa: vanData.placa,
         userTipo: userData?.tipo || 'motorista',
-        rotaId: rotaIdFinal,
         origem: origemFinal,
         destino: destinoFinal,
         abertura: {
-          kmInicial,
           dataHora: new Date().toISOString()
         }
-      });
+      };
+
+      // Adicionar dados específicos do motorista
+      if (userTipo === 'motorista' && vanData) {
+        registroData.vanId = vanId;
+        registroData.placa = vanData.placa;
+        registroData.rotaId = rotaIdFinal;
+        registroData.abertura.kmInicial = kmInicial;
+      }
+
+      const docRef = await addDoc(collection(db, 'registros'), registroData);
       
-      // Atualizar KM da van na abertura
-      await updateDoc(doc(db, 'vans', vanId), {
-        kmAtual: kmInicial
-      });
+      // Atualizar KM da van na abertura (apenas para motorista)
+      if (userTipo === 'motorista' && vanId) {
+        await updateDoc(doc(db, 'vans', vanId), {
+          kmAtual: kmInicial
+        });
+      }
       
       res.status(201).json({ id: docRef.id });
     } catch (error: any) {

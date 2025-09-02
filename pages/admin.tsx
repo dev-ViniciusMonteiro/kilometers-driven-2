@@ -125,14 +125,21 @@ function VanManagement() {
   const [loading, setLoading] = useState(false);
   const [editingVan, setEditingVan] = useState<any>(null);
   const [editVanKm, setEditVanKm] = useState('');
+  const [editVanPlaca, setEditVanPlaca] = useState('');
+  const [showInactiveVans, setShowInactiveVans] = useState(false);
 
   useEffect(() => {
     loadVans();
   }, []);
 
+  useEffect(() => {
+    loadVans();
+  }, [showInactiveVans]);
+
   const loadVans = async () => {
     try {
-      const response = await fetch('/api/vans/list');
+      const endpoint = showInactiveVans ? '/api/vans/list-inactive' : '/api/vans/list';
+      const response = await fetch(endpoint);
       const vansData = await response.json();
       setVans(vansData);
     } catch (error) {
@@ -170,49 +177,87 @@ function VanManagement() {
 
 
   const handleEditVan = async () => {
-    if (!editingVan || !editVanKm) return;
+    if (!editingVan || !editVanKm || !editVanPlaca) return;
     
     setLoading(true);
     try {
-      const response = await fetch('/api/vans/update-km', {
+      // Atualizar KM
+      const kmResponse = await fetch('/api/vans/update-km', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: editingVan.id, kmAtual: parseInt(editVanKm) })
+        body: JSON.stringify({ 
+          id: editingVan.id, 
+          kmAtual: parseInt(editVanKm)
+        })
       });
       
+      // Se a placa mudou, atualizar placa
+      if (editVanPlaca !== editingVan.placa) {
+        await fetch('/api/vans/update-placa', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            id: editingVan.id, 
+            placa: editVanPlaca
+          })
+        });
+      }
+      
+      const response = kmResponse;
+      
       if (response.ok) {
-        alert('KM atualizado com sucesso!');
+        alert('Van atualizada com sucesso!');
         setEditingVan(null);
         setEditVanKm('');
+        setEditVanPlaca('');
         loadVans();
       } else {
-        alert('Erro ao atualizar KM');
+        alert('Erro ao atualizar van');
       }
     } catch (error) {
-      alert('Erro ao atualizar KM');
+      alert('Erro ao atualizar van');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteVan = async (vanId: string) => {
-    if (!confirm('Tem certeza que deseja deletar esta van?')) return;
-    
+  const handleActivateVan = async (vanId: string) => {
     try {
-      const response = await fetch('/api/vans/delete', {
-        method: 'DELETE',
+      const response = await fetch('/api/vans/activate', {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: vanId })
       });
       
       if (response.ok) {
         loadVans();
-        alert('Van deletada com sucesso!');
+        alert('Van ativada com sucesso!');
       } else {
-        alert('Erro ao deletar van');
+        alert('Erro ao ativar van');
       }
     } catch (error) {
-      alert('Erro ao deletar van');
+      alert('Erro ao ativar van');
+    }
+  };
+
+  const handleDeactivateVan = async (vanId: string) => {
+    if (!confirm('Tem certeza que deseja desativar esta van?')) return;
+    
+    try {
+      const response = await fetch('/api/vans/deactivate', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: vanId })
+      });
+      
+      if (response.ok) {
+        loadVans();
+        alert('Van desativada com sucesso!');
+      } else {
+        alert('Erro ao desativar van');
+      }
+    } catch (error) {
+      alert('Erro ao desativar van');
     }
   };
 
@@ -225,6 +270,7 @@ function VanManagement() {
           onChange={(e) => setNewVanPlaca(e.target.value.toUpperCase())}
           placeholder="Placa da van (ex: ABC-1234)"
           className="input"
+          style={{width: '300px'}}
         />
         <input
           type="number"
@@ -232,6 +278,7 @@ function VanManagement() {
           onChange={(e) => setNewVanKm(Number(e.target.value))}
           placeholder="KM inicial"
           className="input"
+          style={{width: '200px'}}
         />
         <button onClick={handleCreateVan} disabled={loading} className="btn-primary">
           {loading ? 'Cadastrando...' : 'Cadastrar Van'}
@@ -239,29 +286,48 @@ function VanManagement() {
       </div>
 
       <div className="vans-list" style={{padding: '20px', paddingTop: '0'}}>
-        <h3>Vans Cadastradas ({Array.isArray(vans) ? vans.length : 0})</h3>
+        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px'}}>
+          <h3>Vans {showInactiveVans ? 'Desativadas' : 'Ativas'} ({Array.isArray(vans) ? vans.length : 0})</h3>
+          <button 
+            onClick={() => setShowInactiveVans(!showInactiveVans)} 
+            className="btn-secondary"
+          >
+            {showInactiveVans ? 'Ver Ativas' : 'Ver Desativadas'}
+          </button>
+        </div>
         {Array.isArray(vans) && vans.length > 0 ? vans.map((van: any) => (
           <div key={van.id} className="van-item">
             <div className="van-info">
               <span className="van-placa">{van.placa}</span>
               <span className="van-km">KM Atual: {van.kmAtual}</span>
+              {van.ativa === false && <span className="van-status" style={{color: 'red'}}>DESATIVADA</span>}
             </div>
             <div className="van-actions">
               <button 
                 onClick={() => {
                   setEditingVan(van);
                   setEditVanKm(van.kmAtual.toString());
+                  setEditVanPlaca(van.placa);
                 }} 
                 className="btn-secondary btn-small"
               >
                 Editar
               </button>
-              <button 
-                onClick={() => handleDeleteVan(van.id)} 
-                className="btn-danger btn-small"
-              >
-                Deletar
-              </button>
+              {van.ativa === false ? (
+                <button 
+                  onClick={() => handleActivateVan(van.id)} 
+                  className="btn-primary btn-small"
+                >
+                  Ativar
+                </button>
+              ) : (
+                <button 
+                  onClick={() => handleDeactivateVan(van.id)} 
+                  className="btn-danger btn-small"
+                >
+                  Desativar
+                </button>
+              )}
             </div>
           </div>
         )) : <p>Nenhuma van cadastrada</p>}
@@ -272,22 +338,31 @@ function VanManagement() {
           <div className="modal-content">
             <h3>Editar Van - {editingVan.placa}</h3>
             <div className="form-group">
+              <label>Placa:</label>
+              <input
+                type="text"
+                value={editVanPlaca}
+                onChange={(e) => setEditVanPlaca(e.target.value.toUpperCase())}
+                className="input"
+                style={{width: '100%', marginBottom: '10px'}}
+              />
               <label>KM Atual:</label>
               <input
                 type="number"
                 value={editVanKm}
                 onChange={(e) => setEditVanKm(e.target.value)}
-                placeholder={editingVan.kmAtual.toString()}
                 className="input"
+                style={{width: '100%'}}
               />
             </div>
             <div className="modal-actions">
-              <button onClick={handleEditVan} disabled={!editVanKm || loading} className="btn-primary">
+              <button onClick={handleEditVan} disabled={!editVanKm || !editVanPlaca || loading} className="btn-primary">
                 {loading ? 'Salvando...' : 'Salvar'}
               </button>
               <button onClick={() => { 
                 setEditingVan(null); 
                 setEditVanKm(''); 
+                setEditVanPlaca('');
               }} className="btn-secondary">
                 Cancelar
               </button>
@@ -300,6 +375,11 @@ function VanManagement() {
 }
 
 export default function Admin() {
+  // Função helper para de-para copiloto -> mentora
+  const formatUserType = (tipo: string) => {
+    return tipo === 'copiloto' ? 'mentora' : tipo;
+  };
+
   const [user, setUser] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [records, setRecords] = useState<any[]>([]);
@@ -322,7 +402,8 @@ export default function Admin() {
     rotas: false,
     users: false,
     records: false,
-    charts: false
+    charts: false,
+    jornadas: false
   });
   const [chartFilters, setChartFilters] = useState({
     startDate: new Date().toISOString().split('T')[0],
@@ -332,7 +413,25 @@ export default function Admin() {
   const [recordFilters, setRecordFilters] = useState({
     startDate: new Date().toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0],
+    selectedUser: '',
+    showOnlyOpen: false,
+    rotaSearch: ''
+  });
+  const [jornadasFilters, setJornadasFilters] = useState({
+    startDate: '',
+    endDate: '',
     selectedUser: ''
+  });
+  const [showJornadaModal, setShowJornadaModal] = useState(false);
+  const [jornadaNormal, setJornadaNormal] = useState('08:00');
+  const [exportType, setExportType] = useState('');
+  const [editingRecord, setEditingRecord] = useState<any>(null);
+  const [editRecordData, setEditRecordData] = useState({
+    kmInicial: '',
+    kmFinal: '',
+    dataAbertura: '',
+    dataFechamento: '',
+    diarioBordo: ''
   });
   const router = useRouter();
 
@@ -412,7 +511,7 @@ export default function Admin() {
       if (response.ok) {
         const userData = await response.json();
         loadUsers();
-        const tipoTexto = newUserPerfil === 'admin' ? 'Administrador' : (newUserTipo === 'motorista' ? 'Motorista' : 'Copiloto');
+        const tipoTexto = newUserPerfil === 'admin' ? 'Administrador' : (newUserTipo === 'motorista' ? 'Motorista' : 'Mentora');
         alert(`Usuário criado com sucesso!\n\nNome: ${newUserNome}\nEmail: ${newUserEmail}\nSenha: ${newUserPassword}\nTipo: ${tipoTexto}\n\nCopie estes dados para o cliente.`);
         setNewUserEmail('');
         setNewUserPassword('');
@@ -454,6 +553,39 @@ export default function Admin() {
   };
 
 
+
+  const handleEditRecord = async () => {
+    if (!editingRecord) return;
+    
+    setLoading(true);
+    try {
+      const response = await fetch('/api/records/edit', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          id: editingRecord.id,
+          kmInicial: editRecordData.kmInicial ? parseInt(editRecordData.kmInicial) : null,
+          kmFinal: editRecordData.kmFinal ? parseInt(editRecordData.kmFinal) : null,
+          dataAbertura: editRecordData.dataAbertura ? new Date(editRecordData.dataAbertura).toISOString() : null,
+          dataFechamento: editRecordData.dataFechamento ? new Date(editRecordData.dataFechamento).toISOString() : null,
+          diarioBordo: editRecordData.diarioBordo
+        })
+      });
+      
+      if (response.ok) {
+        alert('Registro atualizado com sucesso');
+        setEditingRecord(null);
+        setEditRecordData({kmInicial: '', kmFinal: '', dataAbertura: '', dataFechamento: '', diarioBordo: ''});
+        loadRecords();
+      } else {
+        alert('Erro ao atualizar registro');
+      }
+    } catch (error) {
+      alert('Erro ao atualizar registro');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleCancelRecord = async (record: any) => {
     if (!confirm(`Tem certeza que deseja deletar este registro?\n\nEsta ação não pode ser desfeita!`)) return;
@@ -564,10 +696,28 @@ export default function Admin() {
       
       if (recordFilters.startDate || recordFilters.endDate) {
         const recordDate = new Date(record.abertura?.dataHora);
-        if (recordFilters.startDate && recordDate < new Date(recordFilters.startDate)) {
-          return false;
+        
+        if (recordFilters.startDate) {
+          const startDate = new Date(recordFilters.startDate + 'T00:00:00');
+          if (recordDate < startDate) {
+            return false;
+          }
         }
-        if (recordFilters.endDate && recordDate > new Date(recordFilters.endDate + 'T23:59:59')) {
+        if (recordFilters.endDate) {
+          const endDate = new Date(recordFilters.endDate + 'T23:59:59');
+          if (recordDate > endDate) {
+            return false;
+          }
+        }
+      }
+      
+      if (recordFilters.showOnlyOpen && record.fechamento) {
+        return false;
+      }
+      
+      if (recordFilters.rotaSearch) {
+        const rota = `${record.origem || ''} ${record.destino || ''}`.toLowerCase();
+        if (!rota.includes(recordFilters.rotaSearch.toLowerCase())) {
           return false;
         }
       }
@@ -583,16 +733,17 @@ export default function Admin() {
       const distancia = record.fechamento?.kmFinal && record.abertura?.kmInicial 
         ? record.fechamento.kmFinal - record.abertura.kmInicial 
         : null;
+      const userTipo = user?.tipo || 'motorista';
       data.push([
         user?.nome || '',
-        user?.tipo || 'motorista',
-        record.placa || '-',
+        formatUserType(userTipo),
+        userTipo === 'copiloto' ? '-' : (record.placa || '-'),
         record.origem && record.destino ? `${record.origem} → ${record.destino}` : '-',
-        record.abertura?.kmInicial || '',
+        userTipo === 'copiloto' ? '-' : (record.abertura?.kmInicial || ''),
         record.abertura?.dataHora ? new Date(record.abertura.dataHora).toLocaleString('pt-BR') : '',
-        record.fechamento?.kmFinal || 'Em aberto',
+        userTipo === 'copiloto' ? '-' : (record.fechamento?.kmFinal || 'Em aberto'),
         record.fechamento?.dataHora ? new Date(record.fechamento.dataHora).toLocaleString('pt-BR') : 'Em aberto',
-        distancia ? `${distancia} km` : '-',
+        userTipo === 'copiloto' || !distancia ? '-' : `${distancia} km`,
         record.fechamento?.diarioBordo || '-'
       ]);
     });
@@ -612,7 +763,7 @@ export default function Admin() {
       data.push(['']);
       data.push([`Data de Exportação: ${new Date().toLocaleString('pt-BR')}`]);
       data.push([`Funcionário: ${selectedUser?.nome || 'N/A'}`]);
-      data.push([`Período: ${recordFilters.startDate || 'Todas'} até ${recordFilters.endDate || 'Todas'}`]);
+      data.push([`Período: ${recordFilters.startDate ? new Date(recordFilters.startDate).toLocaleDateString('pt-BR') : 'Todas'} até ${recordFilters.endDate ? new Date(recordFilters.endDate).toLocaleDateString('pt-BR') : 'Todas'}`]);
       data.push(['']);
       data.push(['Assinatura: _________________________________']);
     }
@@ -637,7 +788,7 @@ export default function Admin() {
       data.push(['']);
       data.push([`Data de Exportação: ${new Date().toLocaleString('pt-BR')}`]);
       data.push([`Funcionário: ${selectedUser?.nome || 'N/A'}`]);
-      data.push([`Período: ${recordFilters.startDate || 'Todas'} até ${recordFilters.endDate || 'Todas'}`]);
+      data.push([`Período: ${recordFilters.startDate ? new Date(recordFilters.startDate).toLocaleDateString('pt-BR') : 'Todas'} até ${recordFilters.endDate ? new Date(recordFilters.endDate).toLocaleDateString('pt-BR') : 'Todas'}`]);
       data.push(['']);
       data.push(['Assinatura: _________________________________']);
     }
@@ -647,6 +798,314 @@ export default function Admin() {
     XLSX.utils.book_append_sheet(wb, ws, 'Registros');
     XLSX.writeFile(wb, 'registros.xlsx');
   };
+
+  const getJornadasData = () => {
+    const filteredRecords = records.filter((record: any) => {
+      if (jornadasFilters.selectedUser && record.userId !== jornadasFilters.selectedUser) {
+        return false;
+      }
+      
+      if (jornadasFilters.startDate || jornadasFilters.endDate) {
+        const recordDate = new Date(record.abertura?.dataHora);
+        if (jornadasFilters.startDate && recordDate < new Date(jornadasFilters.startDate)) {
+          return false;
+        }
+        if (jornadasFilters.endDate && recordDate > new Date(jornadasFilters.endDate + 'T23:59:59')) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
+    
+    const data = [];
+    data.push(['Nome', 'Rota', 'Data Abertura', 'Data Fechamento']);
+    
+    filteredRecords.forEach(record => {
+      const user = users.find(u => u.uid === record.userId);
+      data.push([
+        user?.nome || '',
+        record.origem && record.destino ? `${record.origem} → ${record.destino}` : '-',
+        record.abertura?.dataHora ? new Date(record.abertura.dataHora).toLocaleString('pt-BR') : '',
+        record.fechamento?.dataHora ? new Date(record.fechamento.dataHora).toLocaleString('pt-BR') : 'Em aberto'
+      ]);
+    });
+    
+    return data;
+  };
+
+  const openJornadaModal = (type: string) => {
+    setExportType(type);
+    setShowJornadaModal(true);
+  };
+
+  const calculateWorkHours = (abertura: string, fechamento: string) => {
+    if (!abertura || !fechamento) return 0;
+    const start = new Date(abertura);
+    const end = new Date(fechamento);
+    return (end.getTime() - start.getTime()) / (1000 * 60 * 60); // horas
+  };
+
+  const getJornadaDataWithHours = () => {
+    const filteredRecords = records.filter((record: any) => {
+      if (jornadasFilters.selectedUser && record.userId !== jornadasFilters.selectedUser) {
+        return false;
+      }
+      
+      if (jornadasFilters.startDate || jornadasFilters.endDate) {
+        const recordDate = new Date(record.abertura?.dataHora);
+        if (jornadasFilters.startDate && recordDate < new Date(jornadasFilters.startDate)) {
+          return false;
+        }
+        if (jornadasFilters.endDate && recordDate > new Date(jornadasFilters.endDate + 'T23:59:59')) {
+          return false;
+        }
+      }
+      
+      return true;
+    });
+    
+    const data = [];
+    data.push(['Nome', 'Data', 'Entrada', 'Saída', 'Horas Trabalhadas', 'Jornada Normal', 'Diferença']);
+    
+    // Agrupar por usuário e data
+    const groupedData: any = {};
+    
+    filteredRecords.forEach(record => {
+      const user = users.find(u => u.uid === record.userId);
+      const userName = user?.nome || '';
+      const date = record.abertura?.dataHora ? new Date(record.abertura.dataHora).toLocaleDateString('pt-BR') : '';
+      const key = `${userName}-${date}`;
+      
+      if (!groupedData[key]) {
+        groupedData[key] = {
+          nome: userName,
+          data: date,
+          entradas: [],
+          saidas: []
+        };
+      }
+      
+      if (record.abertura?.dataHora) {
+        groupedData[key].entradas.push(new Date(record.abertura.dataHora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit', hour12: false}));
+      }
+      if (record.fechamento?.dataHora) {
+        groupedData[key].saidas.push(new Date(record.fechamento.dataHora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit', hour12: false}));
+      }
+    });
+    
+    Object.values(groupedData).forEach((group: any) => {
+      const entradas = group.entradas.join(', ');
+      const saidas = group.saidas.join(', ');
+      
+      // Calcular total de horas (simplificado)
+      let totalHoras = 0;
+      const registrosDoDia = filteredRecords.filter(r => {
+        const user = users.find(u => u.uid === r.userId);
+        const date = r.abertura?.dataHora ? new Date(r.abertura.dataHora).toLocaleDateString('pt-BR') : '';
+        return user?.nome === group.nome && date === group.data && r.fechamento?.dataHora;
+      });
+      
+      registrosDoDia.forEach(r => {
+        totalHoras += calculateWorkHours(r.abertura.dataHora, r.fechamento.dataHora);
+      });
+      
+      const [horas, minutos] = jornadaNormal.split(':').map(Number);
+      const jornadaNormalHoras = horas + (minutos / 60);
+      const diferenca = totalHoras - jornadaNormalHoras;
+      const diferencaTexto = diferenca > 0 ? `+${diferenca.toFixed(2)}h` : `${diferenca.toFixed(2)}h`;
+      
+      data.push([
+        group.nome,
+        group.data,
+        entradas,
+        saidas,
+        `${totalHoras.toFixed(2)}h`,
+        jornadaNormal,
+        diferencaTexto
+      ]);
+    });
+    
+    return data;
+  };
+
+  const exportJornadasCSV = (): void => {
+    const data = getJornadaDataWithHours();
+    
+    // Se tem filtro por usuário, adicionar rodapé personalizado
+    if (jornadasFilters.selectedUser) {
+      const selectedUser = users.find(u => u.uid === jornadasFilters.selectedUser);
+      data.push(['']);
+      data.push(['']);
+      data.push([`Data de Exportação: ${new Date().toLocaleString('pt-BR')}`]);
+      data.push([`Funcionário: ${selectedUser?.nome || 'N/A'}`]);
+      data.push([`Período: ${jornadasFilters.startDate ? new Date(jornadasFilters.startDate).toLocaleDateString('pt-BR') : 'Todas'} até ${jornadasFilters.endDate ? new Date(jornadasFilters.endDate).toLocaleDateString('pt-BR') : 'Todas'}`]);
+      data.push([`Jornada Normal: ${jornadaNormal}`]);
+      data.push(['']);
+      data.push(['Assinatura: _________________________________']);
+    }
+    
+    const csvString = data.map((row: any) => row.map((cell: any) => `"${cell}"`).join(',')).join('\n');
+    const blob = new Blob([csvString], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'controle-jornadas.csv';
+    a.click();
+    setShowJornadaModal(false);
+  };
+
+  const exportJornadasExcel = (): void => {
+    const XLSX = require('xlsx');
+    const data = getJornadaDataWithHours();
+    
+    // Se tem filtro por usuário, adicionar rodapé personalizado
+    if (jornadasFilters.selectedUser) {
+      const selectedUser = users.find(u => u.uid === jornadasFilters.selectedUser);
+      data.push(['']);
+      data.push(['']);
+      data.push([`Data de Exportação: ${new Date().toLocaleString('pt-BR')}`]);
+      data.push([`Funcionário: ${selectedUser?.nome || 'N/A'}`]);
+      data.push([`Período: ${jornadasFilters.startDate ? new Date(jornadasFilters.startDate).toLocaleDateString('pt-BR') : 'Todas'} até ${jornadasFilters.endDate ? new Date(jornadasFilters.endDate).toLocaleDateString('pt-BR') : 'Todas'}`]);
+      data.push([`Jornada Normal: ${jornadaNormal}`]);
+      data.push(['']);
+      data.push(['Assinatura: _________________________________']);
+    }
+    
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Controle Jornadas');
+    XLSX.writeFile(wb, 'controle-jornadas.xlsx');
+    setShowJornadaModal(false);
+  };
+
+  const exportJornadasPDF = (): void => {
+    const data = getJornadaDataWithHours();
+    const doc = new (require('jspdf').jsPDF)();
+    
+    doc.setFontSize(16);
+    doc.text('Controle de Jornadas', 14, 22);
+    doc.setFontSize(10);
+    doc.text(`Jornada Normal: ${jornadaNormal}`, 14, 32);
+    
+    let y = 45;
+    
+    data.slice(1).forEach((row: any, index: number) => {
+      if (row.some((cell: any) => cell && cell.toString().trim())) {
+        doc.setFontSize(10);
+        doc.text(`${row[0]} - ${row[1]}`, 14, y);
+        y += 6;
+        doc.text(`Entrada: ${row[2]} | Saída: ${row[3]}`, 14, y);
+        y += 6;
+        doc.text(`Trabalhadas: ${row[4]} | Normal: ${row[5]} | Diferença: ${row[6]}`, 14, y);
+        y += 10;
+        
+        doc.line(14, y - 3, 190, y - 3);
+        y += 3;
+        
+        if (y > 250) {
+          doc.addPage();
+          y = 20;
+        }
+      }
+    });
+    
+    // Rodapé se tem filtro por usuário
+    if (jornadasFilters.selectedUser) {
+      const selectedUser = users.find(u => u.uid === jornadasFilters.selectedUser);
+      y += 20;
+      if (y > 230) {
+        doc.addPage();
+        y = 20;
+      }
+      doc.setFontSize(10);
+      doc.text(`Data de Exportação: ${new Date().toLocaleString('pt-BR')}`, 14, y);
+      doc.text(`Funcionário: ${selectedUser?.nome || 'N/A'}`, 14, y + 10);
+      doc.text(`Período: ${jornadasFilters.startDate ? new Date(jornadasFilters.startDate).toLocaleDateString('pt-BR') : 'Todas'} até ${jornadasFilters.endDate ? new Date(jornadasFilters.endDate).toLocaleDateString('pt-BR') : 'Todas'}`, 14, y + 20);
+      doc.text(`Jornada Normal: ${jornadaNormal}`, 14, y + 30);
+      doc.text('Assinatura: _________________________________', 14, y + 50);
+    }
+    
+    doc.save('controle-jornadas.pdf');
+    setShowJornadaModal(false);
+  };
+
+  function JornadasSection() {
+    return (
+      <div>
+        <div className="chart-filters">
+          <input
+            type="date"
+            value={jornadasFilters.startDate}
+            onChange={(e) => setJornadasFilters(prev => ({...prev, startDate: e.target.value}))}
+            placeholder="Data inicial"
+            className="input"
+          />
+          <input
+            type="date"
+            value={jornadasFilters.endDate}
+            onChange={(e) => setJornadasFilters(prev => ({...prev, endDate: e.target.value}))}
+            placeholder="Data final"
+            className="input"
+          />
+          <select
+            value={jornadasFilters.selectedUser}
+            onChange={(e) => setJornadasFilters(prev => ({...prev, selectedUser: e.target.value}))}
+            className="input"
+          >
+            <option value="">Todos os usuários</option>
+            {users.map((user: any) => (
+              <option key={user.uid} value={user.uid}>{user.nome || user.email}</option>
+            ))}
+          </select>
+          <button onClick={() => setJornadasFilters({startDate: '', endDate: '', selectedUser: ''})} className="btn-secondary">
+            Limpar
+          </button>
+        </div>
+        <div className="records-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Rota</th>
+                <th>Data Abertura</th>
+                <th>Data Fechamento</th>
+              </tr>
+            </thead>
+            <tbody>
+              {records.filter((record: any) => {
+                if (jornadasFilters.selectedUser && record.userId !== jornadasFilters.selectedUser) {
+                  return false;
+                }
+                
+                if (jornadasFilters.startDate || jornadasFilters.endDate) {
+                  const recordDate = new Date(record.abertura?.dataHora);
+                  if (jornadasFilters.startDate && recordDate < new Date(jornadasFilters.startDate)) {
+                    return false;
+                  }
+                  if (jornadasFilters.endDate && recordDate > new Date(jornadasFilters.endDate + 'T23:59:59')) {
+                    return false;
+                  }
+                }
+                
+                return true;
+              }).map((record: any) => {
+                const user = users.find(u => u.uid === record.userId);
+                return (
+                  <tr key={record.id}>
+                    <td>{user?.nome || ''}</td>
+                    <td>{record.origem && record.destino ? `${record.origem} → ${record.destino}` : '-'}</td>
+                    <td>{record.abertura?.dataHora ? new Date(record.abertura.dataHora).toLocaleString('pt-BR') : ''}</td>
+                    <td>{record.fechamento?.dataHora ? new Date(record.fechamento.dataHora).toLocaleString('pt-BR') : 'Em aberto'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  }
 
   const exportPDF = (): void => {
     const { data, selectedUser } = getFilteredData();
@@ -711,7 +1170,7 @@ export default function Admin() {
       doc.setFontSize(10);
       doc.text(`Data de Exportação: ${new Date().toLocaleString('pt-BR')}`, 14, y);
       doc.text(`Funcionário: ${selectedUser?.nome || 'N/A'}`, 14, y + 10);
-      doc.text(`Período: ${recordFilters.startDate || 'Todas'} até ${recordFilters.endDate || 'Todas'}`, 14, y + 20);
+      doc.text(`Período: ${recordFilters.startDate ? new Date(recordFilters.startDate).toLocaleDateString('pt-BR') : 'Todas'} até ${recordFilters.endDate ? new Date(recordFilters.endDate).toLocaleDateString('pt-BR') : 'Todas'}`, 14, y + 20);
       doc.text('Assinatura: _________________________________', 14, y + 40);
     }
     
@@ -788,7 +1247,7 @@ export default function Admin() {
     
     if (copilotoRecords.length > 0) {
       stats.push({
-        email: `Copilotos (${copilotoRecords.length})`,
+        email: `Mentoras (${copilotoRecords.length})`,
         count: copilotoRecords.length,
         percentage: totalRecords > 0 ? (copilotoRecords.length / totalRecords * 100) : 0
       });
@@ -895,7 +1354,7 @@ export default function Admin() {
             <div className="bar-label">
               {stat.vanPlaca} - {stat.userName}
               <br />
-              <small>{stat.userTipo} • {stat.registros} registros</small>
+              <small>{formatUserType(stat.userTipo)} • {stat.registros} registros</small>
             </div>
             <div className="bar-wrapper">
               <div 
@@ -936,7 +1395,7 @@ export default function Admin() {
     
     const stats: any[] = [];
     if (motoristaKm > 0) stats.push({ label: 'Motoristas', totalKm: motoristaKm, count: motoristaViagens });
-    if (copilotoKm > 0) stats.push({ label: 'Copilotos', totalKm: copilotoKm, count: copilotoViagens });
+    if (copilotoKm > 0) stats.push({ label: 'Mentoras', totalKm: copilotoKm, count: copilotoViagens });
     
     const maxKm = Math.max(...stats.map((s: any) => s.totalKm), 1);
     
@@ -962,8 +1421,11 @@ export default function Admin() {
 
   return (
     <div className="admin-container">
-      <header className="header">
-        <h1>Painel Administrativo</h1>
+      <header className="header" style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
+        <div style={{display: 'flex', alignItems: 'center'}}>
+          <img src="/logoOfi.png" alt="Logo" style={{height: '45px', marginRight: '12px'}} />
+          <h1>Painel Administrativo</h1>
+        </div>
         <div className="header-buttons">
           <button onClick={() => router.push('/help')} className="btn-secondary">📚 Ajuda</button>
           <button onClick={refreshAllData} className="btn-primary">Atualizar</button>
@@ -1014,7 +1476,7 @@ export default function Admin() {
               className="input"
             >
               <option value="motorista">🚗 Motorista</option>
-              <option value="copiloto">👥 Copiloto</option>
+              <option value="copiloto">👥 Mentora</option>
             </select>
           )}
           <button onClick={handleCreateUser} disabled={loading} className="btn-primary">
@@ -1069,7 +1531,7 @@ export default function Admin() {
                 <div className="user-badges">
                   <span className={`badge ${user.perfil}`}>{user.perfil}</span>
                   {user.perfil === 'user' && (
-                    <span className={`badge tipo-${user.tipo}`}>{user.tipo}</span>
+                    <span className={`badge tipo-${user.tipo}`}>{formatUserType(user.tipo)}</span>
                   )}
                 </div>
               </div>
@@ -1170,7 +1632,7 @@ export default function Admin() {
                 className="input"
               >
                 <option value="motorista">🚗 Motorista</option>
-                <option value="copiloto">👥 Copiloto</option>
+                <option value="copiloto">👥 Mentora</option>
               </select>
               <div className="modal-actions">
                 <button onClick={handleChangeTipo} disabled={loading} className="btn-primary">
@@ -1224,7 +1686,22 @@ export default function Admin() {
                 <option key={user.uid} value={user.uid}>{user.nome || user.email}</option>
               ))}
             </select>
-            <button onClick={() => setRecordFilters({startDate: '', endDate: '', selectedUser: ''})} className="btn-secondary">
+            <input
+              type="text"
+              value={recordFilters.rotaSearch}
+              onChange={(e) => setRecordFilters(prev => ({...prev, rotaSearch: e.target.value}))}
+              placeholder="Buscar rota (ex: São Paulo, Rio)"
+              className="input"
+            />
+            <label style={{display: 'flex', alignItems: 'center', gap: '5px', fontSize: '14px'}}>
+              <input
+                type="checkbox"
+                checked={recordFilters.showOnlyOpen}
+                onChange={(e) => setRecordFilters(prev => ({...prev, showOnlyOpen: e.target.checked}))}
+              />
+              Apenas em aberto
+            </label>
+            <button onClick={() => setRecordFilters({startDate: '', endDate: '', selectedUser: '', showOnlyOpen: false, rotaSearch: ''})} className="btn-secondary">
               Limpar
             </button>
           </div>
@@ -1253,10 +1730,28 @@ export default function Admin() {
                   
                   if (recordFilters.startDate || recordFilters.endDate) {
                     const recordDate = new Date(record.abertura?.dataHora);
-                    if (recordFilters.startDate && recordDate < new Date(recordFilters.startDate)) {
-                      return false;
+                    
+                    if (recordFilters.startDate) {
+                      const startDate = new Date(recordFilters.startDate + 'T00:00:00');
+                      if (recordDate < startDate) {
+                        return false;
+                      }
                     }
-                    if (recordFilters.endDate && recordDate > new Date(recordFilters.endDate + 'T23:59:59')) {
+                    if (recordFilters.endDate) {
+                      const endDate = new Date(recordFilters.endDate + 'T23:59:59');
+                      if (recordDate > endDate) {
+                        return false;
+                      }
+                    }
+                  }
+                  
+                  if (recordFilters.showOnlyOpen && record.fechamento) {
+                    return false;
+                  }
+                  
+                  if (recordFilters.rotaSearch) {
+                    const rota = `${record.origem || ''} ${record.destino || ''}`.toLowerCase();
+                    if (!rota.includes(recordFilters.rotaSearch.toLowerCase())) {
                       return false;
                     }
                   }
@@ -1270,19 +1765,44 @@ export default function Admin() {
                   return (
                     <tr key={record.id}>
                       <td>{user?.nome || ''}</td>
-                      <td>{user?.tipo || 'motorista'}</td>
-                      <td>{record.placa || '-'}</td>
+                      <td>{formatUserType(user?.tipo || 'motorista')}</td>
+                      <td>{user?.tipo === 'copiloto' ? '-' : (record.placa || '-')}</td>
                       <td>{record.origem && record.destino ? `${record.origem} → ${record.destino}` : '-'}</td>
-                      <td>{record.abertura?.kmInicial}</td>
+                      <td>{user?.tipo === 'copiloto' ? '-' : (record.abertura?.kmInicial || '')}</td>
                       <td>{record.abertura?.dataHora ? new Date(record.abertura.dataHora).toLocaleString('pt-BR') : ''}</td>
-                      <td>{record.fechamento?.kmFinal || 'Em aberto'}</td>
+                      <td>{user?.tipo === 'copiloto' ? '-' : (record.fechamento?.kmFinal || 'Em aberto')}</td>
                       <td>{record.fechamento?.dataHora ? new Date(record.fechamento.dataHora).toLocaleString('pt-BR') : 'Em aberto'}</td>
-                      <td>{distancia ? `${distancia} km` : '-'}</td>
+                      <td>{user?.tipo === 'copiloto' || !distancia ? '-' : `${distancia} km`}</td>
                       <td>{record.fechamento?.diarioBordo || '-'}</td>
                       <td>
                         <button 
+                          onClick={() => {
+                            setEditingRecord(record);
+                            const formatDateForInput = (dateString: string) => {
+                              if (!dateString) return '';
+                              const date = new Date(dateString);
+                              // Ajustar para fuso horário brasileiro (UTC-3)
+                              const offsetMs = date.getTimezoneOffset() * 60 * 1000;
+                              const localDate = new Date(date.getTime() - offsetMs);
+                              return localDate.toISOString().slice(0, 16);
+                            };
+                            
+                            setEditRecordData({
+                              kmInicial: record.abertura?.kmInicial?.toString() || '',
+                              kmFinal: record.fechamento?.kmFinal?.toString() || '',
+                              dataAbertura: formatDateForInput(record.abertura?.dataHora),
+                              dataFechamento: formatDateForInput(record.fechamento?.dataHora),
+                              diarioBordo: record.fechamento?.diarioBordo || ''
+                            });
+                          }} 
+                          className="btn-secondary btn-small"
+                          style={{marginRight: '5px'}}
+                        >
+                          Editar
+                        </button>
+                        <button 
                           onClick={() => handleCancelRecord(record)} 
-                          className="btn-danger"
+                          className="btn-danger btn-small"
                         >
                           Deletar
                         </button>
@@ -1295,6 +1815,120 @@ export default function Admin() {
           </div>
         </div>
         )}
+      </section>
+      
+      {editingRecord && (
+        <div className="modal">
+          <div className="modal-content">
+            <h3>Editar Registro</h3>
+            <div className="form-group">
+              <div style={{marginBottom: '15px'}}>
+                <label>KM Inicial:</label>
+                <input
+                  type="number"
+                  value={editRecordData.kmInicial}
+                  onChange={(e) => setEditRecordData(prev => ({...prev, kmInicial: e.target.value}))}
+                  className="input"
+                  style={{width: '100%', marginTop: '5px'}}
+                />
+              </div>
+              <div style={{marginBottom: '15px'}}>
+                <label>Data/Hora Abertura:</label>
+                <div style={{display: 'flex', gap: '10px', marginTop: '5px'}}>
+                  <input
+                    type="date"
+                    value={editRecordData.dataAbertura.split('T')[0] || ''}
+                    onChange={(e) => {
+                      const time = editRecordData.dataAbertura.split('T')[1] || '00:00';
+                      setEditRecordData(prev => ({...prev, dataAbertura: `${e.target.value}T${time}`}));
+                    }}
+                    className="input"
+                    style={{flex: 1}}
+                  />
+                  <input
+                    type="time"
+                    value={editRecordData.dataAbertura.split('T')[1] || ''}
+                    onChange={(e) => {
+                      const date = editRecordData.dataAbertura.split('T')[0] || new Date().toISOString().split('T')[0];
+                      setEditRecordData(prev => ({...prev, dataAbertura: `${date}T${e.target.value}`}));
+                    }}
+                    className="input"
+                    style={{flex: 1}}
+                  />
+                </div>
+              </div>
+              <div style={{marginBottom: '15px'}}>
+                <label>KM Final:</label>
+                <input
+                  type="number"
+                  value={editRecordData.kmFinal}
+                  onChange={(e) => setEditRecordData(prev => ({...prev, kmFinal: e.target.value}))}
+                  className="input"
+                  style={{width: '100%', marginTop: '5px'}}
+                />
+              </div>
+              <div style={{marginBottom: '15px'}}>
+                <label>Data/Hora Fechamento:</label>
+                <div style={{display: 'flex', gap: '10px', marginTop: '5px'}}>
+                  <input
+                    type="date"
+                    value={editRecordData.dataFechamento.split('T')[0] || ''}
+                    onChange={(e) => {
+                      const time = editRecordData.dataFechamento.split('T')[1] || '00:00';
+                      setEditRecordData(prev => ({...prev, dataFechamento: `${e.target.value}T${time}`}));
+                    }}
+                    className="input"
+                    style={{flex: 1}}
+                  />
+                  <input
+                    type="time"
+                    value={editRecordData.dataFechamento.split('T')[1] || ''}
+                    onChange={(e) => {
+                      const date = editRecordData.dataFechamento.split('T')[0] || new Date().toISOString().split('T')[0];
+                      setEditRecordData(prev => ({...prev, dataFechamento: `${date}T${e.target.value}`}));
+                    }}
+                    className="input"
+                    style={{flex: 1}}
+                  />
+                </div>
+              </div>
+              <div>
+                <label>Diário de Bordo:</label>
+                <textarea
+                  value={editRecordData.diarioBordo}
+                  onChange={(e) => setEditRecordData(prev => ({...prev, diarioBordo: e.target.value}))}
+                  className="input"
+                  style={{width: '100%', height: '80px', marginTop: '5px'}}
+                  placeholder="Observações da viagem..."
+                />
+              </div>
+            </div>
+            <div className="modal-actions">
+              <button onClick={handleEditRecord} disabled={loading} className="btn-primary">
+                {loading ? 'Salvando...' : 'Salvar'}
+              </button>
+              <button onClick={() => {
+                setEditingRecord(null);
+                setEditRecordData({kmInicial: '', kmFinal: '', dataAbertura: '', dataFechamento: '', diarioBordo: ''});
+              }} className="btn-secondary">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <section className="admin-section">
+        <div className="section-header" onClick={() => toggleSection('jornadas')}>
+          <h2>Relatório de Jornadas</h2>
+          <div className="section-actions" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => openJornadaModal('csv')} className="btn-secondary">CSV</button>
+            <button onClick={() => openJornadaModal('excel')} className="btn-secondary">Excel</button>
+            <button onClick={() => openJornadaModal('pdf')} className="btn-secondary">PDF</button>
+            <span className="toggle-icon">{expandedSections.jornadas ? '−' : '+'}</span>
+          </div>
+        </div>
+        {expandedSections.jornadas && <JornadasSection />}
       </section>
 
       <section className="admin-section">
@@ -1327,7 +1961,7 @@ export default function Admin() {
               <option value="">Todos os usuários</option>
               {users.map((user: any) => (
                 <option key={user.uid} value={user.uid}>
-                  {user.nome || user.email} - {user.tipo || 'motorista'}
+                  {user.nome || user.email} - {formatUserType(user.tipo || 'motorista')}
                 </option>
               ))}
             </select>
@@ -1366,6 +2000,49 @@ export default function Admin() {
         </div>
         )}
       </section>
+
+      {showJornadaModal && (
+        <div className="modal">
+          <div className="modal-content">
+            <h3>Configurar Jornada Normal</h3>
+            <div className="form-group">
+              <label>Jornada Normal (horas por dia):</label>
+              <input
+                type="text"
+                value={jornadaNormal}
+                onChange={(e) => {
+                  let value = e.target.value.replace(/[^0-9:]/g, '');
+                  if (value.length === 2 && !value.includes(':')) {
+                    value = value + ':';
+                  }
+                  if (value.length <= 5) {
+                    setJornadaNormal(value);
+                  }
+                }}
+                placeholder="08:00"
+                maxLength={5}
+                className="input"
+              />
+              <small>Formato: HH:MM (ex: 08:00 para 8 horas, 08:30 para 8h30min)</small>
+            </div>
+            <div className="modal-actions">
+              <button 
+                onClick={() => {
+                  if (exportType === 'csv') exportJornadasCSV();
+                  else if (exportType === 'excel') exportJornadasExcel();
+                  else if (exportType === 'pdf') exportJornadasPDF();
+                }} 
+                className="btn-primary"
+              >
+                Exportar {exportType.toUpperCase()}
+              </button>
+              <button onClick={() => setShowJornadaModal(false)} className="btn-secondary">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

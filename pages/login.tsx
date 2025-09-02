@@ -32,7 +32,10 @@ export default function Login() {
   return (
     <div className="login-container">
       <form onSubmit={handleSubmit(onSubmit)} className="login-form">
-        <h1>Login</h1>
+        <div style={{textAlign: 'center', marginBottom: '30px'}}>
+          <img src="/logoOfi.png" alt="Logo" style={{height: '100px', marginBottom: '15px'}} />
+          <h1>Login</h1>
+        </div>
         
         <input
           {...register('email', { required: true })}

@@ -31,6 +31,8 @@ export default function Home() {
   const [selectedVan, setSelectedVan] = useState('');
   const [rotas, setRotas] = useState<any[]>([]);
   const [selectedRota, setSelectedRota] = useState('');
+  const [showRotaModal, setShowRotaModal] = useState(false);
+  const [rotaSearch, setRotaSearch] = useState('');
   const router = useRouter();
 
   useEffect(() => {
@@ -89,6 +91,8 @@ export default function Home() {
       loadRotas();
     }
   }, [userTipo, openRecord]);
+
+
   
 
   
@@ -132,54 +136,9 @@ export default function Home() {
         
         vansData = vansDisponiveis;
       } else if (userTipo === 'copiloto') {
-        const registrosResponse = await fetch('/api/records');
-        const registros = await registrosResponse.json();
-        
-        if (!openRecord) {
-          // Para iniciar: apenas vans com motorista ativo
-          const vansComMotorista = [];
-          
-          for (const van of (vansData as any[])) {
-            const registroMotorista = registros.find((registro: any) => {
-              const isMotorista = !registro.userTipo || registro.userTipo === 'motorista';
-              return registro.vanId === van.id && !registro.fechamento && isMotorista;
-            });
-            
-            if (registroMotorista) {
-              // Buscar nome do motorista
-              const motoristaResponse = await fetch(`/api/users/get-user-data?uid=${registroMotorista.userId}`);
-              let nomeMotorista = 'Motorista';
-              if (motoristaResponse.ok) {
-                const motoristaData = await motoristaResponse.json();
-                nomeMotorista = motoristaData.nome || 'Motorista';
-              }
-              
-              vansComMotorista.push({
-                ...van,
-                nomeMotorista,
-                origem: registroMotorista.origem || '',
-                destino: registroMotorista.destino || ''
-              });
-            }
-          }
-          vansData = vansComMotorista;
-        } else {
-          // Para fechar: verificar se van do registro aberto ainda tem motorista ativo
-          const vanAindaAtiva = registros.some((registro: any) => {
-            const isMotorista = !registro.userTipo || registro.userTipo === 'motorista';
-            return registro.vanId === (openRecord as any).vanId && !registro.fechamento && isMotorista;
-          });
-          
-          if (vanAindaAtiva) {
-            // Motorista ainda ativo na van do copiloto - não pode fechar
-            vansData = [];
-            setCanCloseRecord(false);
-          } else {
-            // Motorista fechou - copiloto pode fechar
-            vansData = [{ id: (openRecord as any).vanId, placa: (openRecord as any).placa }];
-            setCanCloseRecord(true);
-          }
-        }
+        // Copiloto não precisa selecionar van
+        vansData = [];
+        setCanCloseRecord(true);
       }
       
       setVans(vansData);
@@ -198,15 +157,21 @@ export default function Home() {
   };
 
   const handleOpen = async () => {
-    if (!kmValue || !user || !selectedVan) {
-      alert('Selecione uma van e informe o KM');
-      return;
-    }
-    
-    // Para motorista, rota é obrigatória
-    if (userTipo === 'motorista' && !selectedRota) {
-      alert('Selecione uma rota');
-      return;
+    if (userTipo === 'motorista') {
+      if (!kmValue || !user || !selectedVan) {
+        alert('Selecione uma van e informe o KM');
+        return;
+      }
+      if (!selectedRota) {
+        alert('Selecione uma rota');
+        return;
+      }
+    } else {
+      // Copiloto só precisa de rota
+      if (!selectedRota) {
+        alert('Selecione uma rota');
+        return;
+      }
     }
     
     setLoading(true);
@@ -216,8 +181,8 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           userId: user.uid, 
-          vanId: selectedVan, 
-          kmInicial: parseInt(kmValue),
+          vanId: userTipo === 'motorista' ? selectedVan : null, 
+          kmInicial: userTipo === 'motorista' ? parseInt(kmValue) : null,
           rotaId: userTipo === 'motorista' ? selectedRota : null,
           origem: userTipo === 'copiloto' ? selectedRota.split(' → ')[0] : null,
           destino: userTipo === 'copiloto' ? selectedRota.split(' → ')[1] : null
@@ -260,7 +225,8 @@ export default function Home() {
   };
 
   const handleClose = async () => {
-    if (!kmFinalValue || !openRecord) return;
+    if (!openRecord) return;
+    if (userTipo === 'motorista' && !kmFinalValue) return;
     
     setLoading(true);
     try {
@@ -268,7 +234,7 @@ export default function Home() {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          kmFinal: parseInt(kmFinalValue),
+          kmFinal: userTipo === 'motorista' ? parseInt(kmFinalValue) : null,
           diarioBordo: diarioBordo
         })
       });
@@ -328,8 +294,11 @@ export default function Home() {
 
   return (
     <div className="home-container">
-      <header className="header">
-        <h1>🚐 Olá, {userName}!</h1>
+      <header className="header" style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between'}}>
+        <div style={{display: 'flex', alignItems: 'center'}}>
+          <img src="/logoOfi.png" alt="Logo" style={{height: '45px', marginRight: '12px'}} />
+          <h1>🚐 Olá, {userName}!</h1>
+        </div>
         <div className="header-buttons">
           <button onClick={() => router.push('/help')} className="btn-secondary">📚 Ajuda</button>
           <button onClick={loadUserRecords} className="btn-secondary">📋 Meus Registros</button>
@@ -343,90 +312,72 @@ export default function Home() {
           <h2 className="action-title green">ABERTURA</h2>
           <p className="instruction">{userTipo === 'copiloto' ? 'Selecione a van para bater o ponto de entrada (monitora)' : 'Selecione a van e confirme o KM para iniciar sua viagem'}</p>
           
-          <select
-            value={selectedVan}
-            onChange={(e) => {
-              setSelectedVan(e.target.value);
-              const van = vans.find(v => v.id === e.target.value);
-              if (van) {
-                const kmAtual = van.kmAtual.toString();
-                setKmValue(kmAtual);
-                if (userTipo === 'copiloto') {
-                  setKmFinalValue(kmAtual);
-                  // Para monitora, mostrar a rota do motorista
-                  if (van.origem && van.destino) {
-                    setSelectedRota(`${van.origem} → ${van.destino}`);
-                  }
-                }
-              }
-            }}
-            className="input large"
-            disabled={openRecord}
-          >
-            <option value="">
-              {userTipo === 'copiloto' && vans.length === 0 ? '⚠️ Nenhum motorista ativo' : 
-               userTipo === 'motorista' && vans.length === 0 ? '⚠️ Todas as vans ocupadas' : 
-               '🚐 Selecione uma van'}
-            </option>
-            {vans.map((van: any) => (
-              <option key={van.id} value={van.id}>
-                {van.placa} - KM: {van.kmAtual}{van.nomeMotorista ? ` - ${van.nomeMotorista}` : ''}
-              </option>
-            ))}
-          </select>
-          
-          {userTipo === 'motorista' ? (
+          {userTipo === 'motorista' && (
             <select
-              value={selectedRota}
-              onChange={(e) => setSelectedRota(e.target.value)}
+              value={selectedVan}
+              onChange={(e) => {
+                setSelectedVan(e.target.value);
+                const van = vans.find(v => v.id === e.target.value);
+                if (van) {
+                  const kmAtual = van.kmAtual.toString();
+                  setKmValue(kmAtual);
+                }
+              }}
               className="input large"
               disabled={openRecord}
             >
-              <option value="">🗺️ Selecione a rota</option>
-              {rotas.map((rota: any) => (
-                <option key={rota.id} value={rota.id}>
-                  {rota.origem} → {rota.destino}
+              <option value="">
+                {vans.length === 0 ? '⚠️ Todas as vans ocupadas' : '🚐 Selecione uma van'}
+              </option>
+              {vans.map((van: any) => (
+                <option key={van.id} value={van.id}>
+                  {van.placa} - KM: {van.kmAtual}
                 </option>
               ))}
             </select>
-          ) : (
-            <div className="rota-display">
-              <label>Origem → Destino:</label>
-              <input
-                type="text"
-                value={selectedRota || 'Aguardando seleção da van...'}
-                readOnly
-                className="input large"
-                placeholder="Rota será exibida após selecionar van"
-              />
-            </div>
           )}
           
-          <div className="km-display">
-            <label>KM Inicial:</label>
-            <input
-              type="number"
-              value={openRecord ? (openRecord as any).abertura.kmInicial : kmValue}
-              onChange={(e) => {
-                const value = e.target.value;
-                setKmValue(value);
-                
-                if (!openRecord && selectedVan && value) {
-                  const van = vans.find(v => v.id === selectedVan);
-                  if (van && parseInt(value) < van.kmAtual) {
-                    setKmError(`❌ KM deve ser maior ou igual a ${van.kmAtual}`);
-                  } else {
-                    setKmError('');
+          <button 
+            onClick={() => setShowRotaModal(true)}
+            disabled={openRecord}
+            className="input large"
+            style={{textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}
+          >
+            <span>{selectedRota ? 
+              (userTipo === 'motorista' ? 
+                rotas.find(r => r.id === selectedRota)?.origem + ' → ' + rotas.find(r => r.id === selectedRota)?.destino :
+                selectedRota
+              ) : '🗺️ Selecione a rota'
+            }</span>
+            <span>🔍</span>
+          </button>
+          
+          {userTipo === 'motorista' && (
+            <div className="km-display">
+              <label>KM Inicial:</label>
+              <input
+                type="number"
+                value={openRecord ? (openRecord as any).abertura.kmInicial : kmValue}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setKmValue(value);
+                  
+                  if (!openRecord && selectedVan && value) {
+                    const van = vans.find(v => v.id === selectedVan);
+                    if (van && parseInt(value) < van.kmAtual) {
+                      setKmError(`❌ KM deve ser maior ou igual a ${van.kmAtual}`);
+                    } else {
+                      setKmError('');
+                    }
                   }
-                }
-              }}
-              className={`input large km-input ${kmError ? 'error-input' : ''}`}
-              placeholder={userTipo === 'copiloto' ? 'KM automático da van (monitora)' : 'Digite o KM atual'}
-              readOnly={userTipo === 'copiloto'}
-              disabled={openRecord}
-            />
-            {kmError && <div className="error-message">{kmError}</div>}
-          </div>
+                }}
+                className={`input large km-input ${kmError ? 'error-input' : ''}`}
+                placeholder="Digite o KM atual"
+                disabled={openRecord}
+              />
+              {kmError && <div className="error-message">{kmError}</div>}
+            </div>
+          )}
           
           <div className="date-display">
             <label>Data/Hora:</label>
@@ -440,7 +391,7 @@ export default function Home() {
           
           <button 
             onClick={handleOpen} 
-            disabled={loading || !kmValue || !selectedVan || (userTipo === 'motorista' && !selectedRota) || openRecord || !!kmError} 
+            disabled={loading || (userTipo === 'motorista' && (!kmValue || !selectedVan || !selectedRota || !!kmError)) || (userTipo === 'copiloto' && !selectedRota) || openRecord} 
             className={`btn-action ${openRecord ? 'btn-completed' : 'btn-green'}`}
           >
             {openRecord ? '✅ VIAGEM INICIADA' : (loading ? '⏳ Abrindo...' : (userTipo === 'copiloto' ? '✅ BATER PONTO ENTRADA (MONITORA)' : '✅ INICIAR VIAGEM'))}
@@ -451,7 +402,7 @@ export default function Home() {
           <h2 className="action-title red">FECHAMENTO</h2>
           <p className="instruction">{userTipo === 'copiloto' ? 'Bater o ponto de saída (monitora)' : 'Informe o KM final para encerrar sua viagem'}</p>
           
-          {openRecord && (
+          {openRecord && userTipo === 'motorista' && (
             <div className="trip-info">
               <div className="info-item">
                 <span className="label">Van:</span>
@@ -464,33 +415,32 @@ export default function Home() {
             </div>
           )}
           
-          <div className="km-display">
-            <label>KM Final:</label>
-            <input
-              type="number"
-              value={openRecord ? kmFinalValue : ''}
-              onChange={(e) => {
-                if (userTipo === 'copiloto') return;
-                
-                const value = e.target.value;
-                setKmFinalValue(value);
-                
-                if (openRecord && value) {
-                  if (parseInt(value) < (openRecord as any).abertura.kmInicial) {
-                    setKmFinalError(`❌ KM final deve ser maior ou igual a ${(openRecord as any).abertura.kmInicial}`);
-                  } else {
-                    setKmFinalError('');
+          {userTipo === 'motorista' && (
+            <div className="km-display">
+              <label>KM Final:</label>
+              <input
+                type="number"
+                value={openRecord ? kmFinalValue : ''}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setKmFinalValue(value);
+                  
+                  if (openRecord && value) {
+                    if (parseInt(value) < (openRecord as any).abertura.kmInicial) {
+                      setKmFinalError(`❌ KM final deve ser maior ou igual a ${(openRecord as any).abertura.kmInicial}`);
+                    } else {
+                      setKmFinalError('');
+                    }
                   }
-                }
-              }}
-              className={`input large km-input ${kmFinalError ? 'error-input' : ''}`}
-              placeholder={openRecord ? (userTipo === 'copiloto' ? 'KM automático da van (monitora)' : 'Digite o KM final') : 'Inicie uma viagem primeiro'}
-              min={openRecord ? (openRecord as any).abertura.kmInicial : undefined}
-              readOnly={userTipo === 'copiloto'}
-              disabled={!openRecord}
-            />
-            {kmFinalError && <div className="error-message">{kmFinalError}</div>}
-          </div>
+                }}
+                className={`input large km-input ${kmFinalError ? 'error-input' : ''}`}
+                placeholder={openRecord ? 'Digite o KM final' : 'Inicie uma viagem primeiro'}
+                min={openRecord ? (openRecord as any).abertura.kmInicial : undefined}
+                disabled={!openRecord}
+              />
+              {kmFinalError && <div className="error-message">{kmFinalError}</div>}
+            </div>
+          )}
           
           <div className="diario-display">
             <label>Diário de Bordo:</label>
@@ -517,7 +467,7 @@ export default function Home() {
           
           <button 
             onClick={handleClose} 
-            disabled={loading || !kmFinalValue || !openRecord || !!kmFinalError || !canCloseRecord} 
+            disabled={loading || !openRecord || (userTipo === 'motorista' && (!kmFinalValue || !!kmFinalError)) || !canCloseRecord} 
             className="btn-action btn-red"
           >
             {!openRecord ? '🔒 INICIE UMA VIAGEM PRIMEIRO' : (loading ? '⏳ Fechando...' : (!canCloseRecord ? '⚠️ AGUARDE MOTORISTA FINALIZAR TRAJETO' : (userTipo === 'copiloto' ? '🏁 BATER PONTO SAÍDA (MONITORA)' : '🏁 FINALIZAR VIAGEM')))}
@@ -568,6 +518,97 @@ export default function Home() {
                   )}
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {showRotaModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)',
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'flex-end'
+        }}>
+          <div style={{
+            backgroundColor: 'white',
+            width: '100%',
+            maxHeight: '70vh',
+            borderRadius: '15px 15px 0 0',
+            display: 'flex',
+            flexDirection: 'column',
+            marginBottom: '20px'
+          }}>
+            <div style={{
+              padding: '15px 20px',
+              borderBottom: '1px solid #eee',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <h2 style={{margin: 0}}>🔍 Buscar Rota</h2>
+              <button onClick={() => setShowRotaModal(false)} className="btn-secondary">Fechar</button>
+            </div>
+            
+            <div style={{padding: '15px 20px', flex: 1, display: 'flex', flexDirection: 'column'}}>
+              <input
+                type="text"
+                value={rotaSearch}
+                onChange={(e) => setRotaSearch(e.target.value)}
+                placeholder="Digite para buscar (ex: São Paulo, Rio)"
+                style={{
+                  width: '100%',
+                  padding: '10px',
+                  border: '1px solid #ddd',
+                  borderRadius: '5px',
+                  marginBottom: '15px',
+                  fontSize: '16px'
+                }}
+              />
+              
+              <div style={{height: '400px', overflowY: 'scroll', WebkitOverflowScrolling: 'touch'}}>
+                {rotas.filter(rota => {
+                  if (!rotaSearch) return true;
+                  const rotaText = `${rota.origem} ${rota.destino}`.toLowerCase();
+                  return rotaText.includes(rotaSearch.toLowerCase());
+                }).map((rota: any) => (
+                  <div
+                    key={rota.id}
+                    onClick={() => {
+                      const rotaValue = userTipo === 'motorista' ? rota.id : `${rota.origem} → ${rota.destino}`;
+                      setSelectedRota(rotaValue);
+                      setShowRotaModal(false);
+                      setRotaSearch('');
+                    }}
+                    style={{
+                      padding: '15px',
+                      borderBottom: '1px solid #eee',
+                      cursor: 'pointer',
+                      backgroundColor: 'white',
+                      fontSize: '16px'
+                    }}
+                    onTouchStart={(e) => e.target.style.backgroundColor = '#f5f5f5'}
+                    onTouchEnd={(e) => e.target.style.backgroundColor = 'white'}
+                  >
+                    <strong>{rota.origem} → {rota.destino}</strong>
+                  </div>
+                ))}
+
+                {rotas.filter(rota => {
+                  if (!rotaSearch) return true;
+                  const rotaText = `${rota.origem} ${rota.destino}`.toLowerCase();
+                  return rotaText.includes(rotaSearch.toLowerCase());
+                }).length === 0 && rotaSearch && (
+                  <div style={{padding: '20px', textAlign: 'center', color: '#999'}}>
+                    Nenhuma rota encontrada para "{rotaSearch}"
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
