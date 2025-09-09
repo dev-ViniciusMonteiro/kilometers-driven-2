@@ -11,6 +11,9 @@ function RotaManagement() {
   const [newRotaOrigem, setNewRotaOrigem] = useState('');
   const [newRotaDestino, setNewRotaDestino] = useState('');
   const [loading, setLoading] = useState(false);
+  const [editingRota, setEditingRota] = useState<any>(null);
+  const [editRotaOrigem, setEditRotaOrigem] = useState('');
+  const [editRotaDestino, setEditRotaDestino] = useState('');
 
   useEffect(() => {
     loadRotas();
@@ -48,6 +51,37 @@ function RotaManagement() {
       }
     } catch (error) {
       alert('Erro ao cadastrar rota');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditRota = async () => {
+    if (!editingRota || !editRotaOrigem || !editRotaDestino) return;
+    
+    setLoading(true);
+    try {
+      const response = await fetch('/api/rotas/update', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          id: editingRota.id, 
+          origem: editRotaOrigem, 
+          destino: editRotaDestino 
+        })
+      });
+      
+      if (response.ok) {
+        alert('Rota atualizada com sucesso!');
+        setEditingRota(null);
+        setEditRotaOrigem('');
+        setEditRotaDestino('');
+        loadRotas();
+      } else {
+        alert('Erro ao atualizar rota');
+      }
+    } catch (error) {
+      alert('Erro ao atualizar rota');
     } finally {
       setLoading(false);
     }
@@ -105,6 +139,16 @@ function RotaManagement() {
             </div>
             <div className="van-actions">
               <button 
+                onClick={() => {
+                  setEditingRota(rota);
+                  setEditRotaOrigem(rota.origem);
+                  setEditRotaDestino(rota.destino);
+                }} 
+                className="btn-secondary btn-small"
+              >
+                Editar
+              </button>
+              <button 
                 onClick={() => handleDeleteRota(rota.id)} 
                 className="btn-danger btn-small"
               >
@@ -114,6 +158,44 @@ function RotaManagement() {
           </div>
         )) : <p>Nenhuma rota cadastrada</p>}
       </div>
+      
+      {editingRota && (
+        <div className="modal">
+          <div className="modal-content">
+            <h3>Editar Rota</h3>
+            <div className="form-group">
+              <label>Origem:</label>
+              <input
+                type="text"
+                value={editRotaOrigem}
+                onChange={(e) => setEditRotaOrigem(e.target.value)}
+                className="input"
+                style={{width: '100%', marginBottom: '10px'}}
+              />
+              <label>Destino:</label>
+              <input
+                type="text"
+                value={editRotaDestino}
+                onChange={(e) => setEditRotaDestino(e.target.value)}
+                className="input"
+                style={{width: '100%'}}
+              />
+            </div>
+            <div className="modal-actions">
+              <button onClick={handleEditRota} disabled={!editRotaOrigem || !editRotaDestino || loading} className="btn-primary">
+                {loading ? 'Salvando...' : 'Salvar'}
+              </button>
+              <button onClick={() => { 
+                setEditingRota(null); 
+                setEditRotaOrigem(''); 
+                setEditRotaDestino('');
+              }} className="btn-secondary">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -269,8 +351,8 @@ function VanManagement() {
           value={newVanPlaca}
           onChange={(e) => setNewVanPlaca(e.target.value.toUpperCase())}
           placeholder="Placa da van (ex: ABC-1234)"
-          className="input"
-          style={{width: '300px'}}
+          className="input van-placa-input"
+          style={{width: '300px', minWidth: '200px'}}
         />
         <input
           type="number"
@@ -343,7 +425,7 @@ function VanManagement() {
                 type="text"
                 value={editVanPlaca}
                 onChange={(e) => setEditVanPlaca(e.target.value.toUpperCase())}
-                className="input"
+                className="input van-placa-input"
                 style={{width: '100%', marginBottom: '10px'}}
               />
               <label>KM Atual:</label>
@@ -375,9 +457,9 @@ function VanManagement() {
 }
 
 export default function Admin() {
-  // Função helper para de-para copiloto -> mentora
+  // Função helper para de-para copiloto -> monitora
   const formatUserType = (tipo: string) => {
-    return tipo === 'copiloto' ? 'mentora' : tipo;
+    return tipo === 'copiloto' ? 'Monitora' : 'Motorista';
   };
 
   const [user, setUser] = useState<any>(null);
@@ -388,12 +470,15 @@ export default function Admin() {
   const [newUserNome, setNewUserNome] = useState('');
   const [newUserPerfil, setNewUserPerfil] = useState('user');
   const [newUserTipo, setNewUserTipo] = useState('motorista');
+  const [newUserJornada, setNewUserJornada] = useState([{entrada: '08:00', saida: '17:00'}]);
   const [editingUser, setEditingUser] = useState<any>(null);
   const [newPassword, setNewPassword] = useState('');
   const [editingUserName, setEditingUserName] = useState<any>(null);
   const [newName, setNewName] = useState('');
   const [editingUserTipo, setEditingUserTipo] = useState<any>(null);
   const [newTipo, setNewTipo] = useState('');
+  const [editingUserJornada, setEditingUserJornada] = useState<any>(null);
+  const [newJornada, setNewJornada] = useState([{entrada: '08:00', saida: '17:00'}]);
   const [userFilter, setUserFilter] = useState('');
   const [loading, setLoading] = useState(false);
   const [expandedSections, setExpandedSections] = useState({
@@ -403,8 +488,27 @@ export default function Admin() {
     users: false,
     records: false,
     charts: false,
-    jornadas: false
+    jornadas: false,
+    dashboard: false
   });
+  
+  const [openRecords, setOpenRecords] = useState<any[]>([]);
+  
+  // Atualizar registros em aberto a cada 5 minutos
+  useEffect(() => {
+    const updateOpenRecords = () => {
+      const open = records.filter(record => !record.fechamento);
+      setOpenRecords(open);
+    };
+    
+    updateOpenRecords();
+    const interval = setInterval(() => {
+      loadRecords(); // Recarregar todos os registros
+      updateOpenRecords();
+    }, 5 * 60 * 1000); // 5 minutos
+    
+    return () => clearInterval(interval);
+  }, [records]);
   const [chartFilters, setChartFilters] = useState({
     startDate: new Date().toISOString().split('T')[0],
     endDate: new Date().toISOString().split('T')[0],
@@ -425,6 +529,7 @@ export default function Admin() {
   const [showJornadaModal, setShowJornadaModal] = useState(false);
   const [jornadaNormal, setJornadaNormal] = useState('08:00');
   const [exportType, setExportType] = useState('');
+  const [expandedJornadas, setExpandedJornadas] = useState<{[key: string]: boolean}>({});
   const [editingRecord, setEditingRecord] = useState<any>(null);
   const [editRecordData, setEditRecordData] = useState({
     kmInicial: '',
@@ -482,7 +587,8 @@ export default function Admin() {
           ...userData,
           email: userEmail,
           nome: userData.nome || '',
-          tipo: userData.tipo || 'motorista'
+          tipo: userData.tipo || 'motorista',
+          jornada: userData.jornada || [{entrada: '08:00', saida: '17:00'}]
         };
       });
       
@@ -492,9 +598,36 @@ export default function Admin() {
     }
   };
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage] = useState(50);
+
   const loadRecords = async () => {
-    const recordsData = await getAllRecords(50);
-    setRecords(recordsData);
+    const recordsData = await getAllRecords(1000); // Carregar mais registros
+    // Ordenar por nome do usuário
+    const sortedRecords = recordsData.sort((a: any, b: any) => {
+      const userA = users.find(u => u.uid === a.userId);
+      const userB = users.find(u => u.uid === b.userId);
+      const nameA = userA?.nome || '';
+      const nameB = userB?.nome || '';
+      return nameA.localeCompare(nameB);
+    });
+    setRecords(sortedRecords);
+  };
+
+  const addJornadaHorario = () => {
+    setNewUserJornada([...newUserJornada, {entrada: '08:00', saida: '17:00'}]);
+  };
+
+  const removeJornadaHorario = (index: number) => {
+    if (newUserJornada.length > 1) {
+      setNewUserJornada(newUserJornada.filter((_, i) => i !== index));
+    }
+  };
+
+  const updateJornadaHorario = (index: number, field: 'entrada' | 'saida', value: string) => {
+    const updated = [...newUserJornada];
+    updated[index][field] = value;
+    setNewUserJornada(updated);
   };
 
   const handleCreateUser = async () => {
@@ -505,19 +638,27 @@ export default function Admin() {
       const response = await fetch('/api/users/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: newUserEmail, password: newUserPassword, nome: newUserNome, perfil: newUserPerfil, tipo: newUserTipo })
+        body: JSON.stringify({ 
+          email: newUserEmail, 
+          password: newUserPassword, 
+          nome: newUserNome, 
+          perfil: newUserPerfil, 
+          tipo: newUserTipo,
+          jornada: newUserJornada
+        })
       });
       
       if (response.ok) {
         const userData = await response.json();
         loadUsers();
-        const tipoTexto = newUserPerfil === 'admin' ? 'Administrador' : (newUserTipo === 'motorista' ? 'Motorista' : 'Mentora');
+        const tipoTexto = newUserPerfil === 'admin' ? 'Administrador' : (newUserTipo === 'motorista' ? 'Motorista' : 'Monitora');
         alert(`Usuário criado com sucesso!\n\nNome: ${newUserNome}\nEmail: ${newUserEmail}\nSenha: ${newUserPassword}\nTipo: ${tipoTexto}\n\nCopie estes dados para o cliente.`);
         setNewUserEmail('');
         setNewUserPassword('');
         setNewUserNome('');
         setNewUserPerfil('user');
         setNewUserTipo('motorista');
+        setNewUserJornada([{entrada: '08:00', saida: '17:00'}]);
       } else {
         alert('Erro ao criar usuário');
       }
@@ -632,6 +773,32 @@ export default function Admin() {
       }
     } catch (error) {
       alert('Erro ao alterar tipo');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChangeJornada = async () => {
+    if (!editingUserJornada) return;
+    
+    setLoading(true);
+    try {
+      const response = await fetch('/api/users/update-jornada', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid: editingUserJornada.uid, jornada: newJornada })
+      });
+      
+      if (response.ok) {
+        alert('Jornada alterada com sucesso');
+        setEditingUserJornada(null);
+        setNewJornada([{entrada: '08:00', saida: '17:00'}]);
+        loadUsers();
+      } else {
+        alert('Erro ao alterar jornada');
+      }
+    } catch (error) {
+      alert('Erro ao alterar jornada');
     } finally {
       setLoading(false);
     }
@@ -819,12 +986,20 @@ export default function Admin() {
     });
     
     const data = [];
-    data.push(['Nome', 'Rota', 'Data Abertura', 'Data Fechamento']);
+    data.push(['Nome', 'Jornada', 'Rota', 'Data Abertura', 'Data Fechamento']);
     
     filteredRecords.forEach(record => {
       const user = users.find(u => u.uid === record.userId);
+      const userJornada = user?.jornada || [{entrada: '08:00', saida: '17:00'}];
+      const jornadaTexto = userJornada.map((j: any) => `${j.entrada} - ${j.saida}`).reduce((acc: string, curr: string, index: number) => {
+        if (index === 0) return curr;
+        if (index % 2 === 0) return acc + '\n' + curr;
+        return acc + ', ' + curr;
+      }, '');
+      
       data.push([
         user?.nome || '',
+        jornadaTexto,
         record.origem && record.destino ? `${record.origem} → ${record.destino}` : '-',
         record.abertura?.dataHora ? new Date(record.abertura.dataHora).toLocaleString('pt-BR') : '',
         record.fechamento?.dataHora ? new Date(record.fechamento.dataHora).toLocaleString('pt-BR') : 'Em aberto'
@@ -836,6 +1011,23 @@ export default function Admin() {
 
   const openJornadaModal = (type: string) => {
     setExportType(type);
+    // Se há usuário selecionado, usar sua jornada automaticamente
+    if (jornadasFilters.selectedUser) {
+      const selectedUser = users.find(u => u.uid === jornadasFilters.selectedUser);
+      if (selectedUser?.jornada) {
+        let totalMinutos = 0;
+        selectedUser.jornada.forEach((j: any) => {
+          const [entradaH, entradaM] = j.entrada.split(':').map(Number);
+          const [saidaH, saidaM] = j.saida.split(':').map(Number);
+          const entradaMin = entradaH * 60 + entradaM;
+          const saidaMin = saidaH * 60 + saidaM;
+          totalMinutos += saidaMin - entradaMin;
+        });
+        const horas = Math.floor(totalMinutos / 60);
+        const minutos = totalMinutos % 60;
+        setJornadaNormal(`${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}`);
+      }
+    }
     setShowJornadaModal(true);
   };
 
@@ -865,9 +1057,6 @@ export default function Admin() {
       return true;
     });
     
-    const data = [];
-    data.push(['Nome', 'Data', 'Entrada', 'Saída', 'Horas Trabalhadas', 'Jornada Normal', 'Diferença']);
-    
     // Agrupar por usuário e data
     const groupedData: any = {};
     
@@ -881,49 +1070,103 @@ export default function Admin() {
         groupedData[key] = {
           nome: userName,
           data: date,
-          entradas: [],
-          saidas: []
+          horarios: []
         };
       }
       
       if (record.abertura?.dataHora) {
-        groupedData[key].entradas.push(new Date(record.abertura.dataHora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit', hour12: false}));
-      }
-      if (record.fechamento?.dataHora) {
-        groupedData[key].saidas.push(new Date(record.fechamento.dataHora).toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit', hour12: false}));
+        const entrada = new Date(record.abertura.dataHora);
+        const saida = record.fechamento?.dataHora ? new Date(record.fechamento.dataHora) : null;
+        
+        groupedData[key].horarios.push({
+          entrada,
+          saida,
+          entradaTexto: entrada.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit', hour12: false}),
+          saidaTexto: saida ? saida.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit', hour12: false}) : 'Em aberto'
+        });
       }
     });
     
+    // Determinar número máximo de entradas/saídas para criar colunas dinâmicas
+    let maxHorarios = 0;
     Object.values(groupedData).forEach((group: any) => {
-      const entradas = group.entradas.join(', ');
-      const saidas = group.saidas.join(', ');
-      
-      // Calcular total de horas (simplificado)
-      let totalHoras = 0;
-      const registrosDoDia = filteredRecords.filter(r => {
-        const user = users.find(u => u.uid === r.userId);
-        const date = r.abertura?.dataHora ? new Date(r.abertura.dataHora).toLocaleDateString('pt-BR') : '';
-        return user?.nome === group.nome && date === group.data && r.fechamento?.dataHora;
+      group.horarios.sort((a: any, b: any) => a.entrada.getTime() - b.entrada.getTime());
+      maxHorarios = Math.max(maxHorarios, group.horarios.length);
+    });
+    
+    // Criar cabeçalho dinâmico
+    const headers = ['Nome', 'Jornada', 'Data'];
+    for (let i = 0; i < maxHorarios; i++) {
+      headers.push(`Entrada ${i + 1}`);
+      headers.push(`Saída ${i + 1}`);
+    }
+    headers.push('Horas Trabalhadas', 'Jornada Normal', 'Diferença');
+    
+    const data = [];
+    data.push(headers);
+    
+    // Ordenar por nome alfabeticamente
+    const sortedGroups = Object.values(groupedData).sort((a: any, b: any) => a.nome.localeCompare(b.nome));
+    
+    sortedGroups.forEach((group: any) => {
+      // Calcular total de horas
+      let totalMinutos = 0;
+      group.horarios.forEach((h: any) => {
+        if (h.saida) {
+          totalMinutos += (h.saida.getTime() - h.entrada.getTime()) / (1000 * 60);
+        }
       });
       
-      registrosDoDia.forEach(r => {
-        totalHoras += calculateWorkHours(r.abertura.dataHora, r.fechamento.dataHora);
+      const horasTrabalhadas = Math.floor(totalMinutos / 60);
+      const minutosTrabalhados = Math.floor(totalMinutos % 60);
+      const horasTrabalhadasTexto = `${horasTrabalhadas.toString().padStart(2, '0')}:${minutosTrabalhados.toString().padStart(2, '0')}`;
+      
+      // Buscar jornada configurada do usuário
+      const user = users.find(u => u.nome === group.nome);
+      const userJornada = user?.jornada || [{entrada: '08:00', saida: '17:00'}];
+      
+      // Formatar jornada do usuário para exibição
+      const jornadaCompleta = userJornada.map((j: any) => `${j.entrada} - ${j.saida}`).join(', ');
+      const jornadaKey = `${group.nome}-${group.data}`;
+      const isExpanded = expandedJornadas[jornadaKey];
+      const jornadaTexto = jornadaCompleta.length > 20 && !isExpanded ? 
+        jornadaCompleta.substring(0, 17) + '...' : jornadaCompleta;
+      
+      // Calcular total de minutos da jornada normal do usuário
+      let jornadaNormalMinutos = 0;
+      userJornada.forEach((j: any) => {
+        const [entradaH, entradaM] = j.entrada.split(':').map(Number);
+        const [saidaH, saidaM] = j.saida.split(':').map(Number);
+        const entradaMin = entradaH * 60 + entradaM;
+        const saidaMin = saidaH * 60 + saidaM;
+        jornadaNormalMinutos += saidaMin - entradaMin;
       });
       
-      const [horas, minutos] = jornadaNormal.split(':').map(Number);
-      const jornadaNormalHoras = horas + (minutos / 60);
-      const diferenca = totalHoras - jornadaNormalHoras;
-      const diferencaTexto = diferenca > 0 ? `+${diferenca.toFixed(2)}h` : `${diferenca.toFixed(2)}h`;
+      const jornadaNormalHoras = Math.floor(jornadaNormalMinutos / 60);
+      const jornadaNormalMin = jornadaNormalMinutos % 60;
+      const jornadaNormalTexto = `${jornadaNormalHoras.toString().padStart(2, '0')}:${jornadaNormalMin.toString().padStart(2, '0')}`;
       
-      data.push([
-        group.nome,
-        group.data,
-        entradas,
-        saidas,
-        `${totalHoras.toFixed(2)}h`,
-        jornadaNormal,
-        diferencaTexto
-      ]);
+      const diferencaMinutos = totalMinutos - jornadaNormalMinutos;
+      const diferencaHoras = Math.floor(Math.abs(diferencaMinutos) / 60);
+      const diferencaMin = Math.floor(Math.abs(diferencaMinutos) % 60);
+      const sinal = diferencaMinutos >= 0 ? '+' : '-';
+      const diferencaTexto = `${sinal}${diferencaHoras.toString().padStart(2, '0')}:${diferencaMin.toString().padStart(2, '0')}`;
+      
+      const row = [group.nome, jornadaTexto, group.data];
+      
+      // Adicionar entradas e saídas em ordem cronológica
+      for (let i = 0; i < maxHorarios; i++) {
+        if (i < group.horarios.length) {
+          row.push(group.horarios[i].entradaTexto);
+          row.push(group.horarios[i].saidaTexto);
+        } else {
+          row.push('-');
+          row.push('-');
+        }
+      }
+      
+      row.push(horasTrabalhadasTexto, jornadaNormalTexto, diferencaTexto);
+      data.push(row);
     });
     
     return data;
@@ -1054,7 +1297,7 @@ export default function Admin() {
             className="input"
           >
             <option value="">Todos os usuários</option>
-            {users.map((user: any) => (
+            {users.sort((a, b) => (a.nome || a.email).localeCompare(b.nome || b.email)).map((user: any) => (
               <option key={user.uid} value={user.uid}>{user.nome || user.email}</option>
             ))}
           </select>
@@ -1062,46 +1305,121 @@ export default function Admin() {
             Limpar
           </button>
         </div>
-        <div className="records-table">
-          <table>
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>Rota</th>
-                <th>Data Abertura</th>
-                <th>Data Fechamento</th>
-              </tr>
-            </thead>
-            <tbody>
-              {records.filter((record: any) => {
-                if (jornadasFilters.selectedUser && record.userId !== jornadasFilters.selectedUser) {
-                  return false;
-                }
-                
-                if (jornadasFilters.startDate || jornadasFilters.endDate) {
-                  const recordDate = new Date(record.abertura?.dataHora);
-                  if (jornadasFilters.startDate && recordDate < new Date(jornadasFilters.startDate + 'T00:00:00-03:00')) {
-                    return false;
+        <div className="jornadas-scroll-container">
+          {/* Scroll horizontal superior */}
+          <div 
+            className="jornadas-top-scroll" 
+            ref={(el) => {
+              if (el) {
+                const bottomScroll = el.parentElement?.querySelector('.jornadas-bottom-scroll');
+                el.onscroll = () => {
+                  if (bottomScroll) {
+                    bottomScroll.scrollLeft = el.scrollLeft;
                   }
-                  if (jornadasFilters.endDate && recordDate > new Date(jornadasFilters.endDate + 'T23:59:59-03:00')) {
-                    return false;
+                };
+              }
+            }}
+          >
+            <div 
+              className="jornadas-top-scroll-content" 
+              ref={(el) => {
+                if (el) {
+                  const table = el.parentElement?.parentElement?.querySelector('table');
+                  if (table) {
+                    el.style.width = table.scrollWidth + 'px';
                   }
                 }
-                
-                return true;
-              }).map((record: any) => {
-                const user = users.find(u => u.uid === record.userId);
-                return (
-                  <tr key={record.id}>
-                    <td>{user?.nome || ''}</td>
-                    <td>{record.origem && record.destino ? `${record.origem} → ${record.destino}` : '-'}</td>
-                    <td>{record.abertura?.dataHora ? new Date(record.abertura.dataHora).toLocaleString('pt-BR') : ''}</td>
-                    <td>{record.fechamento?.dataHora ? new Date(record.fechamento.dataHora).toLocaleString('pt-BR') : 'Em aberto'}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+              }}
+            ></div>
+          </div>
+          
+          {/* Tabela com scroll inferior */}
+          <div 
+            className="jornadas-bottom-scroll records-table"
+            ref={(el) => {
+              if (el) {
+                const topScroll = el.parentElement?.querySelector('.jornadas-top-scroll');
+                el.onscroll = () => {
+                  if (topScroll) {
+                    topScroll.scrollLeft = el.scrollLeft;
+                  }
+                };
+              }
+            }}
+          >
+            <table className="jornadas-table">
+              <thead>
+                {(() => {
+                  const data = getJornadaDataWithHours();
+                  const headers = data[0] || [];
+                  return (
+                    <tr>
+                      {headers.map((header: string, index: number) => {
+                        // Formatar cabeçalhos com quebra de linha apenas para Entrada/Saída
+                        if (header.includes('Entrada') || header.includes('Saída')) {
+                          const parts = header.split(' ');
+                          return (
+                            <th key={index}>
+                              <div className="jornadas-header">
+                                <span className="header-word">{parts[0]}</span>
+                                <span className="header-number">{parts[1]}</span>
+                              </div>
+                            </th>
+                          );
+                        }
+                        return <th key={index}>{header}</th>;
+                      })}
+                    </tr>
+                  );
+                })()}
+              </thead>
+              <tbody>
+                {(() => {
+                  const data = getJornadaDataWithHours();
+                  const headers = data[0] || [];
+                  return data.slice(1).map((row: any, index: number) => {
+                    const jornadaKey = `${row[0]}-${row[2]}`;
+                    return (
+                      <tr key={index}>
+                        {row.map((cell: any, cellIndex: number) => {
+                          if (cellIndex === 1) { // Coluna Jornada
+                            const isLong = cell.length > 15;
+                            const isExpanded = expandedJornadas[jornadaKey];
+                            const displayText = isLong && !isExpanded ? cell.substring(0, 12) : cell;
+                            return (
+                              <td key={cellIndex} style={{whiteSpace: isExpanded ? 'normal' : 'nowrap'}}>
+                                <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
+                                  <span style={{wordBreak: isExpanded ? 'break-word' : 'normal'}}>{displayText}</span>
+                                  {isLong && (
+                                    <button 
+                                      onClick={() => setExpandedJornadas(prev => ({...prev, [jornadaKey]: !prev[jornadaKey]}))}
+                                      style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        color: '#007bff',
+                                        fontSize: '12px',
+                                        padding: '2px 4px',
+                                        flexShrink: 0
+                                      }}
+                                      title={isExpanded ? 'Recolher' : 'Expandir'}
+                                    >
+                                      {isExpanded ? '−' : '+'}
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            );
+                          }
+                          return <td key={cellIndex}>{cell}</td>;
+                        })}
+                      </tr>
+                    );
+                  });
+                })()}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     );
@@ -1190,8 +1508,7 @@ export default function Admin() {
   const refreshAllData = () => {
     loadUsers();
     loadRecords();
-    // Trigger refresh for VanManagement component
-    window.location.reload();
+    setCurrentPage(1); // Reset para primeira página
   };
 
   const toggleSection = (section: keyof typeof expandedSections) => {
@@ -1247,7 +1564,7 @@ export default function Admin() {
     
     if (copilotoRecords.length > 0) {
       stats.push({
-        email: `Mentoras (${copilotoRecords.length})`,
+        email: `Monitoras (${copilotoRecords.length})`,
         count: copilotoRecords.length,
         percentage: totalRecords > 0 ? (copilotoRecords.length / totalRecords * 100) : 0
       });
@@ -1369,47 +1686,360 @@ export default function Admin() {
     );
   };
 
-  const generateBarChart = (): any => {
-    const filteredRecords = getFilteredRecords();
+  const generateLast7DaysPieChart = (): any[] => {
+    const today = new Date();
+    const last7Days = [];
     
-    const motoristaRecords = filteredRecords.filter((r: any) => {
-      const user = users.find(u => u.uid === r.userId);
-      return user && (user.tipo === 'motorista' || !user.tipo) && r.fechamento?.kmFinal;
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      last7Days.push(date.toISOString().split('T')[0]);
+    }
+    
+    const dayStats = last7Days.map(day => {
+      const dayRecords = records.filter((record: any) => {
+        const user = users.find(u => u.uid === record.userId);
+        if (!user || user.tipo === 'copiloto' || !record.fechamento?.kmFinal) return false;
+        
+        const recordDate = new Date(record.abertura?.dataHora).toISOString().split('T')[0];
+        return recordDate === day;
+      });
+      
+      const totalKm = dayRecords.reduce((sum: number, record: any) => {
+        return sum + (record.fechamento.kmFinal - record.abertura.kmInicial);
+      }, 0);
+      
+      return {
+        day: new Date(day).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' }),
+        totalKm
+      };
     });
     
-    const copilotoRecords = filteredRecords.filter((r: any) => {
-      const user = users.find(u => u.uid === r.userId);
-      return user && user.tipo === 'copiloto' && r.fechamento?.kmFinal;
+    const totalKm = dayStats.reduce((sum, day) => sum + day.totalKm, 0);
+    const colors = ['#007bff', '#28a745', '#dc3545', '#ffc107', '#6c757d', '#17a2b8', '#e83e8c'];
+    let cumulativePercentage = 0;
+    
+    return dayStats.filter(day => day.totalKm > 0).map((day, index) => {
+      const percentage = totalKm > 0 ? (day.totalKm / totalKm) * 100 : 0;
+      const startAngle = (cumulativePercentage / 100) * 360 - 90;
+      const endAngle = ((cumulativePercentage + percentage) / 100) * 360 - 90;
+      cumulativePercentage += percentage;
+      
+      const startAngleRad = (startAngle * Math.PI) / 180;
+      const endAngleRad = (endAngle * Math.PI) / 180;
+      
+      const largeArcFlag = percentage > 50 ? "1" : "0";
+      
+      const x1 = 100 + 80 * Math.cos(startAngleRad);
+      const y1 = 100 + 80 * Math.sin(startAngleRad);
+      const x2 = 100 + 80 * Math.cos(endAngleRad);
+      const y2 = 100 + 80 * Math.sin(endAngleRad);
+      
+      const pathData = [
+        "M", 100, 100,
+        "L", x1, y1,
+        "A", 80, 80, 0, largeArcFlag, 1, x2, y2,
+        "Z"
+      ].join(" ");
+      
+      return (
+        <path
+          key={day.day}
+          d={pathData}
+          fill={colors[index % colors.length]}
+          stroke="white"
+          strokeWidth="2"
+        />
+      );
+    });
+  };
+  
+  const generateLast7DaysLegend = (): any => {
+    const today = new Date();
+    const last7Days = [];
+    
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      last7Days.push(date.toISOString().split('T')[0]);
+    }
+    
+    const dayStats = last7Days.map(day => {
+      const dayRecords = records.filter((record: any) => {
+        const user = users.find(u => u.uid === record.userId);
+        if (!user || user.tipo === 'copiloto' || !record.fechamento?.kmFinal) return false;
+        
+        const recordDate = new Date(record.abertura?.dataHora).toISOString().split('T')[0];
+        return recordDate === day;
+      });
+      
+      const totalKm = dayRecords.reduce((sum: number, record: any) => {
+        return sum + (record.fechamento.kmFinal - record.abertura.kmInicial);
+      }, 0);
+      
+      return {
+        day: new Date(day).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' }),
+        totalKm
+      };
     });
     
-    const motoristaKm = motoristaRecords.reduce((sum: number, record: any) => {
-      return sum + (record.fechamento.kmFinal - record.abertura.kmInicial);
-    }, 0);
+    const totalKm = dayStats.reduce((sum, day) => sum + day.totalKm, 0);
+    const colors = ['#007bff', '#28a745', '#dc3545', '#ffc107', '#6c757d', '#17a2b8', '#e83e8c'];
     
-    const copilotoKm = copilotoRecords.reduce((sum: number, record: any) => {
-      return sum + (record.fechamento.kmFinal - record.abertura.kmInicial);
-    }, 0);
+    return (
+      <div className="pie-legend-container">
+        {dayStats.filter(day => day.totalKm > 0).map((day, index) => {
+          const percentage = totalKm > 0 ? (day.totalKm / totalKm) * 100 : 0;
+          return (
+            <div key={day.day} className="pie-legend-item">
+              <div 
+                className="pie-legend-color" 
+                style={{ backgroundColor: colors[index % colors.length] }}
+              ></div>
+              <span>{day.day}: {day.totalKm} km ({percentage.toFixed(1)}%)</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+  
+  const generateWeekdayChart = (): any => {
+    const weekdays = ['Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta'];
+    const weekdayStats = weekdays.map((weekday, index) => {
+      const motoristaKm = records.filter((record: any) => {
+        const user = users.find(u => u.uid === record.userId);
+        if (!user || user.tipo === 'copiloto' || !record.fechamento?.kmFinal) return false;
+        
+        const recordDate = new Date(record.abertura?.dataHora);
+        const dayOfWeek = recordDate.getDay(); // 0 = domingo, 1 = segunda, etc.
+        return dayOfWeek === index + 1; // index + 1 porque segunda = 1
+      }).reduce((sum: number, record: any) => {
+        return sum + (record.fechamento.kmFinal - record.abertura.kmInicial);
+      }, 0);
+      
+      const mentoraFechamentos = records.filter((record: any) => {
+        const user = users.find(u => u.uid === record.userId);
+        if (!user || user.tipo !== 'copiloto' || !record.fechamento) return false;
+        
+        const recordDate = new Date(record.abertura?.dataHora);
+        const dayOfWeek = recordDate.getDay();
+        return dayOfWeek === index + 1;
+      }).length;
+      
+      return { weekday, motoristaKm, mentoraFechamentos };
+    });
     
-    const motoristaViagens = motoristaRecords.length;
-    const copilotoViagens = copilotoRecords.length;
-    
-    const stats: any[] = [];
-    if (motoristaKm > 0) stats.push({ label: 'Motoristas', totalKm: motoristaKm, count: motoristaViagens });
-    if (copilotoKm > 0) stats.push({ label: 'Mentoras', totalKm: copilotoKm, count: copilotoViagens });
-    
-    const maxKm = Math.max(...stats.map((s: any) => s.totalKm), 1);
+    const maxValue = Math.max(
+      ...weekdayStats.map(s => s.motoristaKm),
+      ...weekdayStats.map(s => s.mentoraFechamentos * 10), // Multiplicar por 10 para visualização
+      1
+    );
     
     return (
       <div className="bar-chart-container">
-        {(stats as any[]).map((stat: any, index: number) => (
-          <div key={stat.label} className="bar-item">
-            <div className="bar-label">{stat.label} ({stat.count} viagens)</div>
+        {weekdayStats.map((stat, index) => (
+          <div key={stat.weekday} className="bar-item">
+            <div className="bar-label">{stat.weekday}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+              <div className="bar-wrapper">
+                <div 
+                  className="bar" 
+                  style={{ 
+                    width: `${(stat.motoristaKm / maxValue) * 100}%`,
+                    background: 'linear-gradient(90deg, #007bff, #0056b3)'
+                  }}
+                ></div>
+                <span className="bar-value">Motoristas: {stat.motoristaKm} km</span>
+              </div>
+              <div className="bar-wrapper">
+                <div 
+                  className="bar" 
+                  style={{ 
+                    width: `${((stat.mentoraFechamentos * 10) / maxValue) * 100}%`,
+                    background: 'linear-gradient(90deg, #28a745, #1e7e34)'
+                  }}
+                ></div>
+                <span className="bar-value">Monitoras: {stat.mentoraFechamentos} fechamentos</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+  
+  const generateVanMotoristaOnlyChart = (): any => {
+    const filteredRecords = getFilteredRecords().filter(record => {
+      const user = users.find(u => u.uid === record.userId);
+      return user && (user.tipo === 'motorista' || !user.tipo);
+    });
+    
+    const vanStats: any = {};
+    
+    filteredRecords.forEach(record => {
+      const user = users.find(u => u.uid === record.userId);
+      const vanPlaca = record.placa || 'Van não identificada';
+      const userName = user?.nome || 'Usuário';
+      
+      const key = `${vanPlaca} - ${userName}`;
+      
+      if (!vanStats[key]) {
+        vanStats[key] = {
+          registros: 0,
+          kmTotal: 0,
+          vanPlaca,
+          userName
+        };
+      }
+      
+      vanStats[key].registros++;
+      
+      if (record.fechamento?.kmFinal && record.abertura?.kmInicial) {
+        vanStats[key].kmTotal += (record.fechamento.kmFinal - record.abertura.kmInicial);
+      }
+    });
+    
+    const statsArray = Object.values(vanStats).sort((a: any, b: any) => b.kmTotal - a.kmTotal);
+    const maxKm = Math.max(...(statsArray as any[]).map((s: any) => s.kmTotal), 1);
+    
+    return (
+      <div className="bar-chart-container">
+        {(statsArray as any[]).map((stat: any, index: number) => (
+          <div key={`${stat.vanPlaca}-${stat.userName}`} className="bar-item">
+            <div className="bar-label">
+              {stat.vanPlaca} - {stat.userName}
+              <br />
+              <small>Motorista • {stat.registros} registros</small>
+            </div>
             <div className="bar-wrapper">
               <div 
                 className="bar" 
-                style={{ width: `${(stat.totalKm / maxKm) * 100}%` }}
+                style={{ 
+                  width: `${(stat.kmTotal / maxKm) * 100}%`,
+                  background: 'linear-gradient(90deg, #007bff, #0056b3)'
+                }}
               ></div>
-              <span className="bar-value">{stat.totalKm} km</span>
+              <span className="bar-value">{stat.kmTotal} km</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+  
+  const generateMonitoraChart = (): any => {
+    const filteredRecords = getFilteredRecords().filter(record => {
+      const user = users.find(u => u.uid === record.userId);
+      return user && user.tipo === 'copiloto';
+    });
+    
+    const monitoraStats: any = {};
+    
+    filteredRecords.forEach(record => {
+      const user = users.find(u => u.uid === record.userId);
+      const userName = user?.nome || 'Usuário';
+      
+      if (!monitoraStats[userName]) {
+        monitoraStats[userName] = {
+          registros: 0,
+          userName
+        };
+      }
+      
+      monitoraStats[userName].registros++;
+    });
+    
+    const statsArray = Object.values(monitoraStats).sort((a: any, b: any) => b.registros - a.registros);
+    const maxRegistros = Math.max(...(statsArray as any[]).map((s: any) => s.registros), 1);
+    
+    return (
+      <div className="bar-chart-container">
+        {(statsArray as any[]).map((stat: any, index: number) => (
+          <div key={stat.userName} className="bar-item">
+            <div className="bar-label">
+              {stat.userName}
+              <br />
+              <small>Monitora • {stat.registros} registros</small>
+            </div>
+            <div className="bar-wrapper">
+              <div 
+                className="bar" 
+                style={{ 
+                  width: `${(stat.registros / maxRegistros) * 100}%`,
+                  background: 'linear-gradient(90deg, #28a745, #1e7e34)'
+                }}
+              ></div>
+              <span className="bar-value">{stat.registros} registros</span>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+  
+  const generateVanUserChart = (): any => {
+    const filteredRecords = getFilteredRecords();
+    
+    const vanStats: any = {};
+    
+    filteredRecords.forEach(record => {
+      const user = users.find(u => u.uid === record.userId);
+      const vanPlaca = record.placa || 'Van não identificada';
+      const userName = user?.nome || 'Usuário';
+      const userTipo = user?.tipo || 'motorista';
+      
+      const key = `${vanPlaca} - ${userName}`;
+      
+      if (!vanStats[key]) {
+        vanStats[key] = {
+          registros: 0,
+          kmTotal: 0,
+          vanPlaca,
+          userName,
+          userTipo: formatUserType(userTipo)
+        };
+      }
+      
+      vanStats[key].registros++;
+      
+      if (record.fechamento?.kmFinal && record.abertura?.kmInicial && userTipo !== 'copiloto') {
+        vanStats[key].kmTotal += (record.fechamento.kmFinal - record.abertura.kmInicial);
+      }
+    });
+    
+    const statsArray = Object.values(vanStats).sort((a: any, b: any) => {
+      if (a.userTipo === 'Monitora' && b.userTipo !== 'Monitora') return 1;
+      if (a.userTipo !== 'Monitora' && b.userTipo === 'Monitora') return -1;
+      return b.kmTotal - a.kmTotal;
+    });
+    
+    const maxValue = Math.max(...(statsArray as any[]).map((s: any) => 
+      s.userTipo === 'Monitora' ? s.registros * 10 : s.kmTotal
+    ), 1);
+    
+    return (
+      <div className="bar-chart-container">
+        {(statsArray as any[]).map((stat: any, index: number) => (
+          <div key={`${stat.vanPlaca}-${stat.userName}`} className="bar-item">
+            <div className="bar-label">
+              {stat.vanPlaca} - {stat.userName}
+              <br />
+              <small>{stat.userTipo} • {stat.registros} registros</small>
+            </div>
+            <div className="bar-wrapper">
+              <div 
+                className="bar" 
+                style={{ 
+                  width: `${((stat.userTipo === 'Mentora' ? stat.registros * 10 : stat.kmTotal) / maxValue) * 100}%`,
+                  background: stat.userTipo === 'Monitora' ? 
+                    'linear-gradient(90deg, #28a745, #1e7e34)' : 
+                    'linear-gradient(90deg, #007bff, #0056b3)'
+                }}
+              ></div>
+              <span className="bar-value">
+                {stat.userTipo === 'Monitora' ? `${stat.registros} registros` : `${stat.kmTotal} km`}
+              </span>
             </div>
           </div>
         ))}
@@ -1476,9 +2106,47 @@ export default function Admin() {
               className="input"
             >
               <option value="motorista">🚗 Motorista</option>
-              <option value="copiloto">👥 Mentora</option>
+              <option value="copiloto">👥 Monitora</option>
             </select>
           )}
+          <div style={{width: '100%', marginTop: '10px'}}>
+            <label>Jornada de trabalho:</label>
+            {newUserJornada.map((horario, index) => (
+              <div key={index} style={{display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '10px'}}>
+                <input
+                  type="time"
+                  value={horario.entrada}
+                  onChange={(e) => updateJornadaHorario(index, 'entrada', e.target.value)}
+                  className="input"
+                  style={{flex: 1}}
+                />
+                <span>até</span>
+                <input
+                  type="time"
+                  value={horario.saida}
+                  onChange={(e) => updateJornadaHorario(index, 'saida', e.target.value)}
+                  className="input"
+                  style={{flex: 1}}
+                />
+                {newUserJornada.length > 1 && (
+                  <button 
+                    onClick={() => removeJornadaHorario(index)}
+                    className="btn-danger"
+                    style={{padding: '5px 10px', fontSize: '12px'}}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            ))}
+            <button 
+              onClick={addJornadaHorario}
+              className="btn-secondary"
+              style={{marginTop: '5px'}}
+            >
+              + Adicionar Horário
+            </button>
+          </div>
           <button onClick={handleCreateUser} disabled={loading} className="btn-primary">
             {loading ? 'Criando...' : 'Criar Usuário'}
           </button>
@@ -1533,6 +2201,23 @@ export default function Admin() {
                   {user.perfil === 'user' && (
                     <span className={`badge tipo-${user.tipo}`}>{formatUserType(user.tipo)}</span>
                   )}
+                  {user.jornada && (
+                    <span className="badge" style={{backgroundColor: '#6c757d', color: 'white'}}>
+                      Jornada: {(() => {
+                        let totalMinutos = 0;
+                        user.jornada.forEach((j: any) => {
+                          const [entradaH, entradaM] = j.entrada.split(':').map(Number);
+                          const [saidaH, saidaM] = j.saida.split(':').map(Number);
+                          const entradaMin = entradaH * 60 + entradaM;
+                          const saidaMin = saidaH * 60 + saidaM;
+                          totalMinutos += saidaMin - entradaMin;
+                        });
+                        const horas = Math.floor(totalMinutos / 60);
+                        const minutos = totalMinutos % 60;
+                        return `${horas.toString().padStart(2, '0')}:${minutos.toString().padStart(2, '0')}`;
+                      })()}
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="user-actions">
@@ -1562,6 +2247,15 @@ export default function Admin() {
                     Alterar Tipo
                   </button>
                 )}
+                <button 
+                  onClick={() => {
+                    setEditingUserJornada(user);
+                    setNewJornada(user.jornada || [{entrada: '08:00', saida: '17:00'}]);
+                  }} 
+                  className="btn-secondary"
+                >
+                  Alterar Jornada
+                </button>
                 <button 
                   onClick={() => handleDeleteUser(user)} 
                   className="btn-danger"
@@ -1632,13 +2326,81 @@ export default function Admin() {
                 className="input"
               >
                 <option value="motorista">🚗 Motorista</option>
-                <option value="copiloto">👥 Mentora</option>
+                <option value="copiloto">👥 Monitora</option>
               </select>
               <div className="modal-actions">
                 <button onClick={handleChangeTipo} disabled={loading} className="btn-primary">
                   {loading ? 'Alterando...' : 'Alterar'}
                 </button>
                 <button onClick={() => { setEditingUserTipo(null); setNewTipo(''); }} className="btn-secondary">
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {editingUserJornada && (
+          <div className="modal">
+            <div className="modal-content">
+              <h3>Alterar jornada - {editingUserJornada.nome || editingUserJornada.email}</h3>
+              <div style={{marginBottom: '15px'}}>
+                <label>Horários de trabalho:</label>
+                {newJornada.map((horario, index) => (
+                  <div key={index} style={{display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '10px'}}>
+                    <input
+                      type="time"
+                      value={horario.entrada}
+                      onChange={(e) => {
+                        const updated = [...newJornada];
+                        updated[index].entrada = e.target.value;
+                        setNewJornada(updated);
+                      }}
+                      className="input"
+                      style={{flex: 1}}
+                    />
+                    <span>até</span>
+                    <input
+                      type="time"
+                      value={horario.saida}
+                      onChange={(e) => {
+                        const updated = [...newJornada];
+                        updated[index].saida = e.target.value;
+                        setNewJornada(updated);
+                      }}
+                      className="input"
+                      style={{flex: 1}}
+                    />
+                    {newJornada.length > 1 && (
+                      <button 
+                        onClick={() => {
+                          const updated = newJornada.filter((_, i) => i !== index);
+                          setNewJornada(updated);
+                        }}
+                        className="btn-danger"
+                        style={{padding: '5px 10px', fontSize: '12px'}}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button 
+                  onClick={() => setNewJornada([...newJornada, {entrada: '08:00', saida: '17:00'}])}
+                  className="btn-secondary"
+                  style={{marginTop: '10px'}}
+                >
+                  + Adicionar Horário
+                </button>
+              </div>
+              <div className="modal-actions">
+                <button onClick={handleChangeJornada} disabled={loading} className="btn-primary">
+                  {loading ? 'Alterando...' : 'Alterar'}
+                </button>
+                <button onClick={() => { 
+                  setEditingUserJornada(null); 
+                  setNewJornada([{entrada: '08:00', saida: '17:00'}]); 
+                }} className="btn-secondary">
                   Cancelar
                 </button>
               </div>
@@ -1682,7 +2444,7 @@ export default function Admin() {
               className="input"
             >
               <option value="">Todos os usuários</option>
-              {users.map((user: any) => (
+              {users.sort((a, b) => (a.nome || a.email).localeCompare(b.nome || b.email)).map((user: any) => (
                 <option key={user.uid} value={user.uid}>{user.nome || user.email}</option>
               ))}
             </select>
@@ -1757,7 +2519,7 @@ export default function Admin() {
                   }
                   
                   return true;
-                }).map((record: any) => {
+                }).slice((currentPage - 1) * recordsPerPage, currentPage * recordsPerPage).map((record: any) => {
                   const user = users.find(u => u.uid === record.userId);
                   const distancia = record.fechamento?.kmFinal && record.abertura?.kmInicial 
                     ? record.fechamento.kmFinal - record.abertura.kmInicial 
@@ -1765,53 +2527,115 @@ export default function Admin() {
                   return (
                     <tr key={record.id}>
                       <td>{user?.nome || ''}</td>
-                      <td>{formatUserType(user?.tipo || 'motorista')}</td>
-                      <td>{user?.tipo === 'copiloto' ? '-' : (record.placa || '-')}</td>
+                      <td>{formatUserType(user?.tipo || 'motorista').toUpperCase()}</td>
+                      <td>{user?.tipo === 'copiloto' ? '-' : (record.placa?.toUpperCase() || '-')}</td>
                       <td>{record.origem && record.destino ? `${record.origem} → ${record.destino}` : '-'}</td>
                       <td>{user?.tipo === 'copiloto' ? '-' : (record.abertura?.kmInicial || '')}</td>
-                      <td>{record.abertura?.dataHora ? new Date(record.abertura.dataHora).toLocaleString('pt-BR') : ''}</td>
+                      <td>{record.abertura?.dataHora ? new Date(record.abertura.dataHora).toLocaleString('pt-BR', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'}) : ''}</td>
                       <td>{user?.tipo === 'copiloto' ? '-' : (record.fechamento?.kmFinal || 'Em aberto')}</td>
-                      <td>{record.fechamento?.dataHora ? new Date(record.fechamento.dataHora).toLocaleString('pt-BR') : 'Em aberto'}</td>
+                      <td>{record.fechamento?.dataHora ? new Date(record.fechamento.dataHora).toLocaleString('pt-BR', {day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'}) : 'Em aberto'}</td>
                       <td>{user?.tipo === 'copiloto' || !distancia ? '-' : `${distancia} km`}</td>
                       <td>{record.fechamento?.diarioBordo || '-'}</td>
                       <td>
-                        <button 
-                          onClick={() => {
-                            setEditingRecord(record);
-                            const formatDateForInput = (dateString: string) => {
-                              if (!dateString) return '';
-                              const date = new Date(dateString);
-                              // Ajustar para fuso horário brasileiro (UTC-3)
-                              const offsetMs = date.getTimezoneOffset() * 60 * 1000;
-                              const localDate = new Date(date.getTime() - offsetMs);
-                              return localDate.toISOString().slice(0, 16);
-                            };
-                            
-                            setEditRecordData({
-                              kmInicial: record.abertura?.kmInicial?.toString() || '',
-                              kmFinal: record.fechamento?.kmFinal?.toString() || '',
-                              dataAbertura: formatDateForInput(record.abertura?.dataHora),
-                              dataFechamento: formatDateForInput(record.fechamento?.dataHora),
-                              diarioBordo: record.fechamento?.diarioBordo || ''
-                            });
-                          }} 
-                          className="btn-secondary btn-small"
-                          style={{marginRight: '5px'}}
-                        >
-                          Editar
-                        </button>
-                        <button 
-                          onClick={() => handleCancelRecord(record)} 
-                          className="btn-danger btn-small"
-                        >
-                          Deletar
-                        </button>
+                        <div className="record-actions">
+                          <button 
+                            onClick={() => {
+                              setEditingRecord(record);
+                              const formatDateForInput = (dateString: string) => {
+                                if (!dateString) return '';
+                                const date = new Date(dateString);
+                                // Ajustar para fuso horário brasileiro (UTC-3)
+                                const offsetMs = date.getTimezoneOffset() * 60 * 1000;
+                                const localDate = new Date(date.getTime() - offsetMs);
+                                return localDate.toISOString().slice(0, 16);
+                              };
+                              
+                              setEditRecordData({
+                                kmInicial: record.abertura?.kmInicial?.toString() || '',
+                                kmFinal: record.fechamento?.kmFinal?.toString() || '',
+                                dataAbertura: formatDateForInput(record.abertura?.dataHora),
+                                dataFechamento: formatDateForInput(record.fechamento?.dataHora),
+                                diarioBordo: record.fechamento?.diarioBordo || ''
+                              });
+                            }} 
+                            className="btn-secondary btn-small"
+                          >
+                            Editar
+                          </button>
+                          <button 
+                            onClick={() => handleCancelRecord(record)} 
+                            className="btn-danger btn-small"
+                          >
+                            Deletar
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+            
+            {/* Paginação */}
+            {(() => {
+              const filteredRecordsForPagination = records.filter((record: any) => {
+                if (recordFilters.selectedUser && record.userId !== recordFilters.selectedUser) {
+                  return false;
+                }
+                
+                if (recordFilters.startDate || recordFilters.endDate) {
+                  const recordDate = new Date(record.abertura?.dataHora);
+                  
+                  if (recordFilters.startDate) {
+                    const startDate = new Date(recordFilters.startDate + 'T00:00:00-03:00');
+                    if (recordDate < startDate) {
+                      return false;
+                    }
+                  }
+                  if (recordFilters.endDate) {
+                    const endDate = new Date(recordFilters.endDate + 'T23:59:59-03:00');
+                    if (recordDate > endDate) {
+                      return false;
+                    }
+                  }
+                }
+                
+                if (recordFilters.showOnlyOpen && record.fechamento) {
+                  return false;
+                }
+                
+                if (recordFilters.rotaSearch) {
+                  const rota = `${record.origem || ''} ${record.destino || ''}`.toLowerCase();
+                  if (!rota.includes(recordFilters.rotaSearch.toLowerCase())) {
+                    return false;
+                  }
+                }
+                
+                return true;
+              });
+              
+              const totalPages = Math.ceil(filteredRecordsForPagination.length / recordsPerPage);
+              
+              return (
+                <div className="pagination" style={{display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '10px', marginTop: '20px'}}>
+                  <button 
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))} 
+                    disabled={currentPage === 1}
+                    className="btn-secondary"
+                  >
+                    Anterior
+                  </button>
+                  <span>Página {currentPage} de {totalPages}</span>
+                  <button 
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))} 
+                    disabled={currentPage >= totalPages}
+                    className="btn-secondary"
+                  >
+                    Próxima
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         </div>
         )}
@@ -1932,6 +2756,75 @@ export default function Admin() {
       </section>
 
       <section className="admin-section">
+        <div className="section-header" onClick={() => toggleSection('dashboard')}>
+          <h2>Dashboard - Registros em Aberto</h2>
+          <span className="toggle-icon">{expandedSections.dashboard ? '−' : '+'}</span>
+        </div>
+        {expandedSections.dashboard && (
+        <div className="dashboard-section" style={{padding: '20px'}}>
+          <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px'}}>
+            {/* Dashboard Motoristas */}
+            <div className="dashboard-card" style={{background: '#e7f3ff', padding: '20px', borderRadius: '8px', border: '2px solid #007bff'}}>
+              <h3 style={{color: '#0056b3', marginBottom: '15px'}}>🚗 Motoristas em Aberto</h3>
+              <div style={{fontSize: '2em', fontWeight: 'bold', color: '#007bff', marginBottom: '15px'}}>
+                {openRecords.filter(r => {
+                  const user = users.find(u => u.uid === r.userId);
+                  return user && (user.tipo === 'motorista' || !user.tipo);
+                }).length}
+              </div>
+              <div className="records-list" style={{maxHeight: '300px', overflowY: 'auto'}}>
+                {openRecords.filter(r => {
+                  const user = users.find(u => u.uid === r.userId);
+                  return user && (user.tipo === 'motorista' || !user.tipo);
+                }).map((record: any) => {
+                  const user = users.find(u => u.uid === record.userId);
+                  return (
+                    <div key={record.id} style={{padding: '10px', background: 'white', marginBottom: '8px', borderRadius: '4px', fontSize: '14px'}}>
+                      <strong>{user?.nome}</strong><br/>
+                      Van: {record.placa?.toUpperCase() || 'N/A'}<br/>
+                      Rota: {record.origem && record.destino ? `${record.origem} → ${record.destino}` : 'N/A'}<br/>
+                      Abertura: {record.abertura?.dataHora ? new Date(record.abertura.dataHora).toLocaleString('pt-BR') : 'N/A'}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+            
+            {/* Dashboard Mentoras */}
+            <div className="dashboard-card" style={{background: '#d4edda', padding: '20px', borderRadius: '8px', border: '2px solid #28a745'}}>
+              <h3 style={{color: '#155724', marginBottom: '15px'}}>👥 Monitoras em Aberto</h3>
+              <div style={{fontSize: '2em', fontWeight: 'bold', color: '#28a745', marginBottom: '15px'}}>
+                {openRecords.filter(r => {
+                  const user = users.find(u => u.uid === r.userId);
+                  return user && user.tipo === 'copiloto';
+                }).length}
+              </div>
+              <div className="records-list" style={{maxHeight: '300px', overflowY: 'auto'}}>
+                {openRecords.filter(r => {
+                  const user = users.find(u => u.uid === r.userId);
+                  return user && user.tipo === 'copiloto';
+                }).map((record: any) => {
+                  const user = users.find(u => u.uid === record.userId);
+                  return (
+                    <div key={record.id} style={{padding: '10px', background: 'white', marginBottom: '8px', borderRadius: '4px', fontSize: '14px'}}>
+                      <strong>{user?.nome}</strong><br/>
+                      Rota: {record.origem && record.destino ? `${record.origem} → ${record.destino}` : 'N/A'}<br/>
+                      Abertura: {record.abertura?.dataHora ? new Date(record.abertura.dataHora).toLocaleString('pt-BR') : 'N/A'}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          
+          <div style={{marginTop: '20px', textAlign: 'center', fontSize: '12px', color: '#666'}}>
+            Última atualização: {new Date().toLocaleTimeString('pt-BR')} (Atualiza automaticamente a cada 5 minutos)
+          </div>
+        </div>
+        )}
+      </section>
+
+      <section className="admin-section">
         <div className="section-header" onClick={() => toggleSection('charts')}>
           <h2>Gráficos</h2>
           <span className="toggle-icon">{expandedSections.charts ? '−' : '+'}</span>
@@ -1969,31 +2862,40 @@ export default function Admin() {
               Limpar
             </button>
           </div>
+          
+          
           <div className="charts-container">
-            {!chartFilters.selectedUser && (
             <div className="chart-item">
-              <h3>Registros por Tipo (Pizza)</h3>
+              <h3>Comparação KM Últimos 7 Dias - Motoristas (Pizza)</h3>
               <div className="pie-chart-wrapper">
                 <svg className="pie-chart-svg" width="200" height="200" viewBox="0 0 200 200">
                   <circle cx="100" cy="100" r="80" fill="#f8f9fa" stroke="#dee2e6" strokeWidth="1"/>
-                  {generatePieSlices()}
+                  {generateLast7DaysPieChart()}
                 </svg>
                 <div className="pie-legend">
-                  {generatePieLegend()}
+                  {generateLast7DaysLegend()}
                 </div>
               </div>
             </div>
-            )}
+            
             <div className="chart-item">
-              <h3>Total KM por Tipo (Barras)</h3>
+              <h3>KM por Dia da Semana - Motoristas vs Monitoras (Barras)</h3>
               <div className="bar-chart">
-                {generateBarChart()}
+                {generateWeekdayChart()}
               </div>
             </div>
+            
             <div className="chart-item">
               <h3>Registros por Van x Motorista (Barras)</h3>
               <div className="bar-chart">
-                {generateVanMotoristaChart()}
+                {generateVanMotoristaOnlyChart()}
+              </div>
+            </div>
+            
+            <div className="chart-item">
+              <h3>Monitora x Registros (Barras)</h3>
+              <div className="bar-chart">
+                {generateMonitoraChart()}
               </div>
             </div>
           </div>
@@ -2022,8 +2924,14 @@ export default function Admin() {
                 placeholder="08:00"
                 maxLength={5}
                 className="input"
+                readOnly={jornadasFilters.selectedUser ? true : false}
               />
-              <small>Formato: HH:MM (ex: 08:00 para 8 horas, 08:30 para 8h30min)</small>
+              <small>
+                {jornadasFilters.selectedUser ? 
+                  'Jornada preenchida automaticamente com base no usuário selecionado' :
+                  'Formato: HH:MM (ex: 08:00 para 8 horas, 08:30 para 8h30min)'
+                }
+              </small>
             </div>
             <div className="modal-actions">
               <button 

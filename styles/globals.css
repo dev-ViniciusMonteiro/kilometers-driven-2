@@ -585,6 +585,22 @@ body {
   max-width: 400px;
 }
 
+/* Modal de edição de van com campos maiores */
+.modal-content .van-placa-input {
+  min-width: 200px;
+  font-size: 16px;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.van-info .van-placa {
+  min-width: 120px;
+  word-wrap: break-word;
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+}
+
 .modal-content h3 {
   margin-bottom: 20px;
   color: #333;
@@ -630,9 +646,53 @@ table {
 }
 
 th, td {
-  padding: 12px;
+  padding: 8px 4px;
   text-align: left;
   border-bottom: 1px solid #ddd;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* Ajuste específico para coluna Van */
+th:nth-child(3), td:nth-child(3) {
+  min-width: 80px;
+  max-width: 100px;
+  word-wrap: break-word;
+  word-break: break-all;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Ajuste para coluna Rota */
+th:nth-child(4), td:nth-child(4) {
+  min-width: 120px;
+  max-width: 150px;
+  word-wrap: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Ajuste para colunas de data */
+th:nth-child(6), td:nth-child(6),
+th:nth-child(8), td:nth-child(8) {
+  min-width: 100px;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Ajuste para coluna de ações - sem restrições de largura */
+th:last-child, td:last-child {
+  min-width: 140px;
+  white-space: nowrap;
+}
+
+/* Container dos botões de ação */
+.record-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-content: flex-start;
 }
 
 th {
@@ -726,6 +786,15 @@ th {
   font-size: 14px;
 }
 
+.btn-danger[style*="padding: 5px 10px"] {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .btn-danger:hover {
   background-color: #c82333;
 }
@@ -777,8 +846,11 @@ th {
 }
 
 .btn-small {
-  padding: 6px 12px;
-  font-size: 12px;
+  padding: 4px 8px;
+  font-size: 11px;
+  min-width: 60px;
+  display: inline-block;
+  text-align: center;
 }
 
 /* Help Page Styles */
@@ -885,6 +957,129 @@ th {
   font-weight: bold;
   text-align: center;
   min-width: 200px;
+}
+
+/* Jornada styles */
+.jornada-horarios {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.jornada-horario-item {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 5px;
+}
+
+.jornada-horario-item input[type="time"] {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.jornada-horario-item span {
+  font-weight: 500;
+  color: #666;
+}
+
+.jornada-add-btn {
+  margin-top: 10px;
+  padding: 8px 16px;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.jornada-add-btn:hover {
+  background: #218838;
+}
+
+.jornada-remove-btn {
+  padding: 4px 8px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.jornada-remove-btn:hover {
+  background: #c82333;
+}
+
+.jornada-total {
+  margin-top: 10px;
+  padding: 8px;
+  background: #e9ecef;
+  border-radius: 4px;
+  font-weight: 500;
+  text-align: center;
+}
+
+/* Jornadas table styles */
+.jornadas-scroll-container {
+  position: relative;
+}
+
+.jornadas-top-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 20px;
+  margin-bottom: 10px;
+}
+
+.jornadas-top-scroll-content {
+  height: 1px;
+}
+
+.jornadas-bottom-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.jornadas-table {
+  min-width: 1200px;
+}
+
+.jornadas-table th:nth-child(2),
+.jornadas-table td:nth-child(2) {
+  min-width: 140px;
+  max-width: 180px;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.jornadas-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.header-word {
+  font-size: 12px;
+  line-height: 1;
+}
+
+.header-number {
+  font-size: 10px;
+  color: #666;
+  line-height: 1;
 }
 
 .step-box.motorista {
@@ -1101,6 +1296,173 @@ th {
   display: block;
 }
 
+.dashboard-section {
+  padding: 20px;
+}
+
+.dashboard-card {
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.records-list {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.records-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.records-list::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.records-list::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 3px;
+}
+
+.records-list::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+  padding: 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.pagination button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Estilos específicos para tabela de jornadas */
+.jornadas-table {
+  font-size: 11px;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.jornadas-table th {
+  text-align: center;
+  vertical-align: middle;
+  font-size: 10px;
+  padding: 4px 2px;
+  white-space: nowrap;
+  min-width: 50px;
+  max-width: 70px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.jornadas-table td {
+  text-align: center;
+  vertical-align: middle;
+  font-size: 10px;
+  padding: 4px 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+
+
+/* Quebra de linha apenas nos cabeçalhos de Entrada/Saída */
+.jornadas-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  min-width: 45px;
+}
+
+.jornadas-header .header-word {
+  display: block;
+  font-weight: bold;
+  font-size: 9px;
+}
+
+.jornadas-header .header-number {
+  display: block;
+  font-size: 8px;
+  color: #666;
+  margin-top: 1px;
+}
+
+/* Colunas de nome e data com largura otimizada */
+.jornadas-table th:first-child,
+.jornadas-table th:nth-child(2) {
+  min-width: 80px;
+  max-width: 100px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.jornadas-table td:first-child,
+.jornadas-table td:nth-child(2) {
+  min-width: 80px;
+  max-width: 100px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Últimas 3 colunas com largura otimizada */
+.jornadas-table th:nth-last-child(-n+3) {
+  min-width: 70px;
+  max-width: 90px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.jornadas-table td:nth-last-child(-n+3) {
+  min-width: 70px;
+  max-width: 90px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Container com scroll duplo para tabela de jornadas */
+.jornadas-scroll-container {
+  position: relative;
+  width: 100%;
+  max-width: 100vw;
+}
+
+.jornadas-top-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  height: 15px;
+  margin-bottom: 5px;
+}
+
+.jornadas-top-scroll-content {
+  height: 1px;
+}
+
+.jornadas-bottom-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}
+
+.jornadas-bottom-scroll table {
+  margin: 0;
+  min-width: 100%;
+}
+
 @media (max-width: 768px) {
   .user-actions {
     flex-direction: column;
@@ -1115,5 +1477,36 @@ th {
   .record-actions {
     flex-direction: column;
     gap: 3px;
+  }
+  
+  .dashboard-section {
+    padding: 10px;
+  }
+  
+  .dashboard-section > div {
+    grid-template-columns: 1fr !important;
+    gap: 15px;
+  }
+  
+  .records-list {
+    max-height: 200px;
+  }
+  
+  /* Ajustes para tabela em mobile */
+  th:nth-child(3), td:nth-child(3) {
+    min-width: 100px;
+    max-width: 120px;
+    font-size: 12px;
+  }
+  
+  th:nth-child(4), td:nth-child(4) {
+    min-width: 140px;
+    max-width: 160px;
+    font-size: 12px;
+  }
+  
+  .van-placa-input {
+    min-width: 150px !important;
+    width: 100% !important;
   }
 }
